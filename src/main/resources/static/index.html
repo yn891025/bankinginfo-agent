@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부서업무 길라잡이</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">AI</span>
+            <div><strong>업무 길라잡이</strong><small>AI AGENT WORKSPACE</small></div>
+        </div>
+        <nav aria-label="주 메뉴">
+            <div class="nav-section-title"><span class="nav-icon">⌂</span>업무 길라잡이</div>
+            <div class="subnav">
+                <button class="nav-item active" data-view="web"><span class="subnav-dot"></span>웹 취약점 에이전트</button>
+                <button class="nav-item" data-view="batch"><span class="subnav-dot"></span>배치 에이전트</button>
+                <button class="nav-item" data-view="prevention"><span class="subnav-dot"></span>장애예방 에이전트</button>
+            </div>
+            <div class="nav-divider"></div>
+            <button class="nav-item" data-view="dashboard"><span class="nav-icon">◫</span>대시보드</button>
+            <button class="settings-nav" id="openAgentSettings"><span class="nav-icon">⚙</span>에이전트 설정</button>
+        </nav>
+        <div class="sidebar-note">
+            <span class="status-dot"></span>
+            <div><strong>데모 환경</strong><small>Mock API 연결됨</small></div>
+        </div>
+    </aside>
+
+    <main>
+        <header class="topbar">
+            <button class="menu-button" id="menuButton" aria-label="메뉴 열기">☰</button>
+            <div><p class="breadcrumb">업무 길라잡이</p><h1 id="pageTitle">웹 취약점 에이전트</h1></div>
+            <div class="profile"><span>홍길동 님</span><button class="logout-button">로그아웃</button><div class="avatar">홍</div></div>
+        </header>
+
+        <section class="view active" id="workspaceView">
+            <div class="intro-row">
+                <div><h2>웹 취약점 조치 지원</h2><p>취약점 정보를 입력하면 유사 사례와 수정 방향, 영향도 점검 항목을 안내합니다.</p></div>
+                <span class="prototype-badge">PROTOTYPE</span>
+            </div>
+
+            <div id="webAgent">
+                <div class="stepper" aria-label="진행 단계">
+                    <div class="step active" data-step="1"><span>1</span><p>정보 입력</p></div><i></i>
+                    <div class="step" data-step="2"><span>2</span><p>AI 분석</p></div><i></i>
+                    <div class="step" data-step="3"><span>3</span><p>결과 확인</p></div><i></i>
+                    <div class="step" data-step="4"><span>4</span><p>조치 완료</p></div><i></i>
+                    <div class="step" data-step="5"><span>5</span><p>위키 저장</p></div>
+                </div>
+
+                <section class="panel input-panel" id="inputPanel">
+                    <div class="panel-heading"><div><span class="eyebrow">STEP 01</span><h3>취약점 정보를 입력해 주세요</h3></div><button class="text-button" id="fillSample" type="button">샘플 불러오기</button></div>
+                    <form id="analysisForm">
+                        <div class="form-grid">
+                            <label>취약점 ID <span class="optional">선택</span><input id="vulnId" placeholder="예: WEB-2026-001"></label>
+                            <label>점검 분기<select id="checkQuarter"><option>2026년 3분기</option><option>2026년 2분기</option><option>2026년 1분기</option></select></label>
+                            <label class="span-2">취약점명 <em>필수</em><input id="vulnTitle" required placeholder="예: SQL Injection 입력값 검증 미흡"></label>
+                            <label>시스템명<input id="systemName" placeholder="예: 인터넷뱅킹 포털"></label>
+                            <label>대상 URL<input id="targetUrl" type="url" placeholder="https://service.example.com/api"></label>
+                            <label class="span-2">증상 및 참고사항<textarea id="symptom" rows="3" placeholder="발견 경로, 오류 내용 또는 재현 조건을 입력해 주세요."></textarea></label>
+                            <label class="span-2">현재 소스 코드 <span class="optional">선택</span><textarea id="asIsCode" class="code-input" rows="8" spellcheck="false" placeholder="분석할 코드나 설정 일부를 붙여넣어 주세요."></textarea></label>
+                        </div>
+                        <div class="form-footer"><span>입력 내용은 데모 화면에서만 사용됩니다.</span><button class="primary-button" type="submit">분석 시작 <b>→</b></button></div>
+                    </form>
+                </section>
+
+                <section class="analysis-loading hidden" id="analysisLoading">
+                    <div class="loader"><span></span><span></span><span></span></div>
+                    <h3>취약점 조치 방안을 분석하고 있습니다</h3>
+                    <p id="loadingMessage">유사 조치 사례를 검색하는 중입니다.</p>
+                    <div class="loading-track"><span></span></div>
+                </section>
+
+                <section class="results hidden" id="resultsPanel">
+                    <div class="result-hero">
+                        <div><span class="eyebrow">ANALYSIS COMPLETE</span><h2>분석이 완료되었습니다</h2><p id="resultSummary"></p></div>
+                        <span class="risk-badge">위험도 HIGH</span>
+                    </div>
+                    <div class="result-layout">
+                        <div class="result-main">
+                            <section class="panel"><div class="section-title"><span class="number">01</span><div><h3>유사 조치 사례</h3><p>사내 위키에서 유사도가 높은 사례를 찾았습니다.</p></div></div><div id="similarCases" class="case-list"></div></section>
+                            <section class="panel"><div class="section-title"><span class="number">02</span><div><h3>권장 수정 코드</h3><p>기존 로직을 유지하면서 입력값을 안전하게 처리합니다.</p></div><button class="icon-button" id="copyCode" title="코드 복사">▣</button></div><pre><code id="toBeCode"></code></pre></section>
+                        </div>
+                        <aside class="result-side">
+                            <section class="panel compact"><div class="section-title"><span class="number">03</span><h3>영향도</h3></div><div class="impact-level"><span>예상 영향도</span><strong id="impactLevel">중간</strong></div><ul id="impactTargets"></ul></section>
+                            <section class="panel compact"><div class="section-title"><span class="number">04</span><h3>점검 체크리스트</h3></div><div id="checklist" class="checklist"></div></section>
+                            <div class="recommendation" id="recommendation"></div>
+                        </aside>
+                    </div>
+                    <div class="action-bar"><button class="secondary-button" id="backToInput">입력 내용 수정</button><button class="primary-button" id="completeAction">조치 완료 등록 <b>→</b></button></div>
+                </section>
+            </div>
+
+        </section>
+
+        <section class="view" id="batchView">
+            <section class="batch-placeholder">
+                <div class="placeholder-symbol">▦</div><span class="eyebrow">COMING NEXT</span><h2>배치 에이전트</h2>
+                <p>배치 업무의 입력 항목과 분석 방식은 상세 기획 후 이 영역에 연결됩니다.</p>
+                <div class="placeholder-points"><span>배치 로그 분석</span><span>영향 범위 확인</span><span>조치 사례 자산화</span></div>
+            </section>
+        </section>
+
+        <section class="view" id="preventionView">
+            <section class="batch-placeholder">
+                <div class="placeholder-symbol">△</div><span class="eyebrow">PLANNED</span><h2>장애예방 에이전트</h2>
+                <p>장애 징후와 점검 정보를 기반으로 예방 조치를 지원하는 화면이 연결될 예정입니다.</p>
+                <div class="placeholder-points"><span>징후 분석</span><span>예방 체크리스트</span><span>대응 이력 관리</span></div>
+            </section>
+        </section>
+
+        <section class="view" id="dashboardView">
+            <div class="intro-row"><div><h2>업무 활용 현황</h2><p>에이전트별 분석과 조치 이력을 한눈에 확인합니다.</p></div><select><option>최근 3개월</option><option>최근 6개월</option></select></div>
+            <div class="metric-grid">
+                <article><span>전체 분석 건수</span><strong id="totalCases">-</strong><small>누적 업무 요청</small></article>
+                <article><span>웹 취약점</span><strong id="webCases">-</strong><small>웹 에이전트</small></article>
+                <article><span>배치 업무</span><strong id="batchCases">-</strong><small>배치 에이전트</small></article>
+                <article><span>조치 완료율</span><strong><b id="completionRate">-</b>%</strong><small>완료 등록 기준</small></article>
+            </div>
+            <div class="dashboard-grid">
+                <section class="panel"><div class="panel-heading"><div><h3>에이전트 이용 분포</h3><p>전체 요청 중 에이전트별 비중</p></div></div><div class="donut-wrap"><div class="donut" id="donut"><div><strong>128</strong><span>전체</span></div></div><div class="legend"><p><i class="web-color"></i>웹 취약점 <strong id="webPercent">-</strong></p><p><i class="batch-color"></i>배치 업무 <strong id="batchPercent">-</strong></p></div></div></section>
+                <section class="panel"><div class="panel-heading"><div><h3>주요 개선 주제</h3><p>최근 자주 다뤄진 조치 유형</p></div></div><div id="topicList" class="topic-list"></div></section>
+            </div>
+        </section>
+    </main>
+</div>
+
+<dialog id="agentSettingsDialog" class="settings-dialog">
+    <form method="dialog" id="agentSettingsForm">
+        <div class="dialog-heading">
+            <div><span class="eyebrow">AGENT CONNECTION</span><h2>에이전트 API 설정</h2></div>
+            <button value="cancel" class="close-button" aria-label="닫기" formnovalidate>×</button>
+        </div>
+        <p>에이전트별 API 연결 정보를 입력합니다. 입력값은 현재 브라우저에만 저장됩니다.</p>
+        <div class="settings-tabs" role="tablist">
+            <button type="button" class="settings-tab active" data-settings-agent="web">웹 취약점</button>
+            <button type="button" class="settings-tab" data-settings-agent="batch">배치</button>
+            <button type="button" class="settings-tab" data-settings-agent="prevention">장애예방</button>
+        </div>
+        <div class="settings-agent-heading">
+            <div class="settings-agent-icon">AI</div>
+            <div><strong id="settingsAgentName">웹 취약점 에이전트</strong><small id="settingsAgentDescription">취약점 분석 API 연결 정보</small></div>
+            <span class="connection-state" id="connectionState">미설정</span>
+        </div>
+        <div class="settings-fields">
+            <label>API URL <em>필수</em><input id="agentApiUrl" type="url" required placeholder="https://api.example.com/v1/analyze"></label>
+            <label>API Key <em>필수</em>
+                <span class="secret-input"><input id="agentApiKey" type="password" required autocomplete="off" placeholder="API Key를 입력해 주세요"><button type="button" id="toggleApiKey" title="API Key 표시">보기</button></span>
+            </label>
+            <div class="settings-row">
+                <label>모델명<input id="agentModel" placeholder="예: internal-sllm-v1"></label>
+                <label>타임아웃 (초)<input id="agentTimeout" type="number" min="1" max="300" value="30"></label>
+            </div>
+        </div>
+        <div class="settings-notice">실제 운영 환경에서는 API Key를 브라우저에 저장하지 않고 서버의 보안 저장소에서 관리해야 합니다.</div>
+        <div class="dialog-actions"><button value="cancel" class="secondary-button" formnovalidate>취소</button><button type="submit" class="primary-button">설정 저장</button></div>
+    </form>
+</dialog>
+
+<dialog id="completionDialog">
+    <form method="dialog" id="completionForm">
+        <div class="dialog-heading"><div><span class="eyebrow">STEP 04</span><h2>조치 결과를 알려주세요</h2></div><button value="cancel" class="close-button" aria-label="닫기">×</button></div>
+        <p>완료한 내용을 확인한 후 재사용 가능한 조치 사례로 저장합니다.</p>
+        <label>조치 결과 <em>필수</em><textarea id="actionResult" required rows="4" placeholder="예: PreparedStatement 적용 및 입력값 숫자 검증 완료"></textarea></label>
+        <label>비고<textarea id="actionNote" rows="3" placeholder="테스트 결과나 공유할 내용을 입력해 주세요."></textarea></label>
+        <div class="dialog-actions"><button value="cancel" class="secondary-button">취소</button><button type="submit" class="primary-button">확인 및 위키 저장</button></div>
+    </form>
+</dialog>
+
+<dialog id="savedDialog" class="saved-dialog">
+    <form method="dialog"><div class="success-icon">✓</div><h2>조치 사례가 저장되었습니다</h2><p>다음 취약점 분석부터 유사 사례로 활용할 수 있습니다.</p><div class="saved-info"><span>문서 ID<strong id="documentId"></strong></span><span>저장 위치<strong id="documentPath"></strong></span><span>저장 시각<strong id="savedAt"></strong></span></div><button class="primary-button" id="startNew" value="default">새 분석 시작</button></form>
+</dialog>
+<div class="toast" id="toast">코드를 복사했습니다.</div>
+<script src="/app.js"></script>
+</body>
+</html>

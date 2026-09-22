@@ -1,0 +1,15 @@
+target/
+.idea/
+*.iml
+.DS_Store
+
+# Local credentials and environment overrides
+.env
+.env.*
+!.env.example
+src/main/resources/application-local.properties
+src/main/resources/application-secret.properties
+
+# Internal planning artifacts kept outside the public source package
+*.docx
+build_shell_planning_doc.py
