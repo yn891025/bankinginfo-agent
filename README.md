@@ -25,7 +25,7 @@ Java 17과 Spring Boot 기반으로 실행되며, 별도의 프론트엔드 빌�
 - 웹 취약점 분석 결과는 Spring Boot Mock API가 반환합니다.
 - 위키 검색 및 저장 결과는 예시 데이터입니다.
 - 대시보드 통계는 고정된 데모 데이터입니다.
-- 배치 에이전트의 작업 현황·로그·AI 분석은 Mock 데이터이며, 당일 ODATE는 서버 기동 시점부터 시뮬레이션 시계(실제 1분 = 배치 10분)로 진행됩니다.
+- 배치 에이전트는 작업 정의(`docs/batch-job-list.csv`)와 Control-M 수행 이력(`src/main/resources/batch/*.csv`)을 사용합니다. 실행 로그·AI 분석은 아직 연동되지 않았습니다.
 - 장애예방 에이전트는 준비 화면만 제공합니다.
 - 에이전트 설정값은 브라우저에 저장되며 실제 분석 API 호출에는 아직 사용되지 않습니다.
 
@@ -182,7 +182,8 @@ http://localhost:8080
 | `DepartmentGuideApplication.java` | Spring Boot 실행 진입점 |
 | `AgentController.java` | 분석 및 자산화 Mock API |
 | `DashboardController.java` | 대시보드 Mock API |
-| `BatchController.java` | 배치 현황·Flow·로그 분석 Mock API |
+| `BatchController.java` | 배치 현황·Flow·로그 API (수행 이력 기반) |
+| `BatchRunHistory.java` | Control-M 수행 이력 CSV 로드 |
 | `static/batch.js` | 배치 에이전트 PAGE 1~3 화면 로직 |
 | `static/index.html` | 전체 화면 구조와 팝업 |
 | `static/styles.css` | 데스크톱 및 모바일 화면 스타일 |
@@ -196,7 +197,7 @@ http://localhost:8080
 | `GET` | `/api/batch/jobs?odate=yyyyMMdd` | ODATE 기준 배치 작업 상태 및 상태별 건수 |
 | `GET` | `/api/batch/owners` | 담당자 목록 |
 | `GET` | `/api/batch/flow?odate=&persons=&roles=` | 담당자 기준 Flow Chart 노드·선후행 관계 |
-| `GET` | `/api/batch/logs?odate=&jobName=` | 실행 로그 및 AI 분석 결과 |
+| `GET` | `/api/batch/logs?odate=&jobName=` | 작업 정보 및 실행 로그 (로그 미연동: 빈 목록) |
 | `POST` | `/api/assetize` | 조치 결과의 위키 저장 결과 반환 |
 | `GET` | `/api/dashboard/summary` | 대시보드 요약 데이터 반환 |
 

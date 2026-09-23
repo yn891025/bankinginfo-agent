@@ -47,10 +47,6 @@ function toInputDate(odate) {
     return `${odate.slice(0, 4)}-${odate.slice(4, 6)}-${odate.slice(6, 8)}`;
 }
 
-function timeOf(dateTime) {
-    return dateTime ? dateTime.slice(11) : '-';
-}
-
 /** ODATE와 수행 일자가 다르면(익일 수행) 월-일을 함께 표시합니다. */
 function runTimeOf(dateTime, odate) {
     if (!dateTime) return '-';
@@ -571,7 +567,7 @@ $('#summaryClear').addEventListener('click', () => {
 function renderSummary() {
     if (batchState.flow) applyFlowClasses();
     const jobs = [...batchState.selected].map(jobByName);
-    const total = jobs.reduce((sum, job) => sum + job.avgDurationSec, 0);
+    const total = jobs.reduce((sum, job) => sum + (job.avgDurationSec ?? 0), 0);
     $('#summaryCount').textContent = `${jobs.length}건`;
     $('#summaryAvg').textContent = jobs.length ? formatDuration(total / jobs.length) : '-';
     $('#summaryTotal').textContent = jobs.length ? formatDuration(total) : '-';
@@ -604,15 +600,14 @@ $$('#levelFilter .level-chip').forEach((chip) => chip.addEventListener('click', 
 async function loadLogs() {
     const jobName = $('#logJob').value;
     if (!jobName) return;
-    $('#aiResult').innerHTML = '<div class="ai-loading"><div class="loader"><span></span><span></span><span></span></div><p>AI가 로그를 분석하고 있습니다.</p></div>';
     try {
         const params = new URLSearchParams({odate: toOdate($('#logOdate').value), jobName});
         batchState.logData = await fetchJson(`/api/batch/logs?${params}`);
         renderLogs();
-        await new Promise((resolve) => setTimeout(resolve, 700));
-        renderAnalysis();
+        $('#aiResult').innerHTML = batchState.logData.lines.length
+            ? '<p class="empty">AI 로그 분석은 아직 연동되지 않았습니다.</p>'
+            : '<p class="empty">분석할 실행 로그가 없습니다.</p>';
     } catch (error) {
-        $('#aiResult').innerHTML = '<p class="empty">분석 결과를 불러오지 못했습니다.</p>';
         showToast(error.message);
     }
 }
@@ -626,21 +621,10 @@ function renderLogs() {
         return batchState.levels.has(line.level) && (!from || time >= from.padEnd(8, ':00')) && (!to || time <= to.padEnd(8, ':59'));
     });
     $('#logTitle').textContent = job.jobName;
-    $('#logMeta').innerHTML = `${escapeHtml(job.description)} · ${statusBadge(job.status)} · ${timeOf(job.startTime)} ~ ${timeOf(job.endTime)}`;
+    const odate = toOdate($('#logOdate').value);
+    $('#logMeta').innerHTML = `${escapeHtml(job.description)} · ${statusBadge(job.status, job.ctmState && `Control-M: ${job.ctmState}`)} · ${runTimeOf(job.startTime, odate)} ~ ${runTimeOf(job.endTime, odate)}`;
     $('#logCount').textContent = `${visible.length} / ${lines.length}줄`;
     $('#logViewer').innerHTML = visible.length
         ? visible.map((line) => `<div class="log-line level-${line.level.toLowerCase()}"><time>${escapeHtml(line.time)}</time><b>${line.level}</b><span>${escapeHtml(line.message)}</span></div>`).join('')
-        : '<p class="empty">선택한 조건에 해당하는 로그가 없습니다.</p>';
-}
-
-function renderAnalysis() {
-    const {analysis} = batchState.logData;
-    const severity = {HIGH: ['높음', 'error'], MEDIUM: ['보통', 'warn'], LOW: ['낮음', 'info'], NONE: ['이상 없음', 'ok']}[analysis.severity];
-    $('#aiResult').innerHTML = `
-        <div class="ai-severity sev-${severity[1]}"><span>위험도</span><strong>${severity[0]}</strong></div>
-        <div class="ai-block"><h4>분석 요약</h4><p>${escapeHtml(analysis.summary)}</p></div>
-        <div class="ai-block"><h4>원인 추정</h4><p>${escapeHtml(analysis.cause)}</p></div>
-        <div class="ai-block"><h4>조치 가이드</h4><ol>${analysis.actions.map((action) => `<li>${escapeHtml(action)}</li>`).join('')}</ol></div>
-        ${analysis.similarCases.length ? `<div class="ai-block"><h4>유사 조치 사례</h4>${analysis.similarCases.map((item) => `
-            <article class="case-card"><div><strong>${escapeHtml(item.title)}</strong><br><small>${escapeHtml(item.id)}</small></div><span class="match">${escapeHtml(item.similarity)} 일치</span></article>`).join('')}</div>` : ''}`;
+        : `<p class="empty">${lines.length ? '선택한 조건에 해당하는 로그가 없습니다.' : '실행 로그 데이터가 연동되지 않았습니다.'}</p>`;
 }

@@ -85,11 +85,11 @@ class DepartmentGuideApplicationTests {
     }
 
     @Test
-    void returnsLogsWithAiAnalysisForFailedJob() throws Exception {
-        mockMvc.perform(get("/api/batch/logs").param("jobName", "bmap_fcp_mas_load"))
+    void returnsLogJobFromRunHistoryWithoutMockLines() throws Exception {
+        mockMvc.perform(get("/api/batch/logs").param("odate", "20260922").param("jobName", "bmap_fcp_mas_load"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.analysis.severity").value("HIGH"))
-                .andExpect(jsonPath("$.lines[?(@.level == 'ERROR')]").isNotEmpty());
+                .andExpect(jsonPath("$.job.status").value("OK"))
+                .andExpect(jsonPath("$.lines.length()").value(0));
     }
 
     @Test
