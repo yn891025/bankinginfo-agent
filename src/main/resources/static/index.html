@@ -34,7 +34,7 @@
         <header class="topbar">
             <button class="menu-button" id="menuButton" aria-label="메뉴 열기">☰</button>
             <div><p class="breadcrumb">업무 길라잡이</p><h1 id="pageTitle">웹 취약점 에이전트</h1></div>
-            <div class="profile"><span>홍길동 님</span><button class="logout-button">로그아웃</button><div class="avatar">홍</div></div>
+            <div class="profile"><span>이동호 님</span><button class="logout-button">로그아웃</button><div class="avatar">이</div></div>
         </header>
 
         <section class="view active" id="workspaceView">
@@ -124,12 +124,12 @@
                     </section>
                     <section class="panel">
                         <div class="panel-heading">
-                            <div><h3 id="jobListTitle">주요 작업</h3><p id="jobListDesc">즐겨찾기 · 오류 · 대기 작업</p></div>
+                            <div><h3 id="jobListTitle">주요 작업</h3><p id="jobListDesc">즐겨찾기 · 오류 · 선행 오류로 보류된 작업</p></div>
                             <span class="favorite-count" id="favoriteCount">★ 0/5</span>
                         </div>
                         <div class="table-wrap">
                             <table class="job-table">
-                                <thead><tr><th class="star-col"><span class="sr-only">즐겨찾기</span></th><th>작업명</th><th>상태</th><th>수행 시작</th><th>수행 종료</th><th>수행시간</th><th>로그</th></tr></thead>
+                                <thead><tr><th class="star-col"><span class="sr-only">즐겨찾기</span></th><th>작업명</th><th>상태</th><th>수행 시작</th><th>수행 종료</th><th>수행시간</th><th>수행횟수</th><th>로그</th></tr></thead>
                                 <tbody id="jobTableBody"></tbody>
                             </table>
                         </div>
@@ -155,7 +155,7 @@
                 </div>
                 <div class="flow-legend">
                     <span><i class="status-ok"></i>정상</span><span><i class="status-running"></i>수행중</span><span><i class="status-error"></i>오류</span><span><i class="status-wait"></i>대기</span><span><i class="external"></i>타 담당자 연결 작업</span>
-                    <em id="flowHint">오류 노드 클릭: 원인 구간 강조 · 더블 클릭: 실행 로그</em>
+                    <em id="flowHint">노드 클릭: 선행 작업 경로 강조 · 더블 클릭: 실행 로그</em>
                 </div>
                 <div class="flow-layout">
                     <div class="flow-canvas" id="flowCanvas"><svg id="flowSvg" role="img" aria-label="배치 선후행 Flow Chart"></svg></div>

@@ -2,7 +2,8 @@ const BATCH_STATUS = {
     OK: {label: '정상', cls: 'ok', icon: '✓'},
     RUNNING: {label: '수행중', cls: 'running', icon: '▶'},
     ERROR: {label: '오류', cls: 'error', icon: '!'},
-    WAIT: {label: '대기', cls: 'wait', icon: '…'}
+    WAIT: {label: '대기', cls: 'wait', icon: '…'},
+    NONE: {label: '미수행', cls: 'none', icon: '–'}
 };
 const STATUS_ORDER = ['OK', 'RUNNING', 'ERROR', 'WAIT'];
 const FAVORITE_KEY = 'batchFavoriteJobs';
@@ -20,7 +21,8 @@ const batchState = {
     dashData: null,
     favorites: loadFavorites(),
     owners: [],
-    persons: new Set(['홍길동']),
+    ownersLoading: null,
+    persons: new Set(),
     flow: null,
     positions: new Map(),
     highlight: null,
@@ -49,15 +51,22 @@ function timeOf(dateTime) {
     return dateTime ? dateTime.slice(11) : '-';
 }
 
+/** ODATE와 수행 일자가 다르면(익일 수행) 월-일을 함께 표시합니다. */
+function runTimeOf(dateTime, odate) {
+    if (!dateTime) return '-';
+    return dateTime.slice(0, 10).replaceAll('-', '') === odate ? dateTime.slice(11) : `${dateTime.slice(5, 10)} ${dateTime.slice(11)}`;
+}
+
 function formatDuration(seconds) {
     if (seconds == null) return '-';
     const rounded = Math.round(seconds);
     return `${Math.floor(rounded / 60)}분 ${String(rounded % 60).padStart(2, '0')}초`;
 }
 
-function statusBadge(status) {
+function statusBadge(status, title) {
     const meta = BATCH_STATUS[status];
-    return `<span class="status-badge status-${meta.cls}"><i aria-hidden="true">${meta.icon}</i>${meta.label}</span>`;
+    const tip = title ? ` title="${escapeHtml(title)}"` : '';
+    return `<span class="status-badge status-${meta.cls}"${tip}><i aria-hidden="true">${meta.icon}</i>${meta.label}</span>`;
 }
 
 async function fetchJson(url) {
@@ -88,7 +97,7 @@ function loadBatchView() {
     batchState.initialized = true;
     ['#dashOdate', '#flowOdate', '#logOdate'].forEach((selector) => { $(selector).value = todayInputValue(); });
     loadBatchDashboard();
-    loadOwners();
+    batchState.ownersLoading = loadOwners();
 }
 
 function showBatchPage(page) {
@@ -119,6 +128,7 @@ function openJobLog(jobName, odate) {
 async function loadBatchDashboard(isRefresh = false) {
     try {
         batchState.dashData = await fetchJson(`/api/batch/jobs?odate=${toOdate($('#dashOdate').value)}`);
+        pruneFavorites(batchState.dashData.definedJobs);
         renderBatchDashboard();
         if (isRefresh) showToast('실시간 배치 상황을 갱신했습니다.');
     } catch (error) {
@@ -131,7 +141,7 @@ $('#dashRefresh').addEventListener('click', () => loadBatchDashboard(true));
 
 function renderBatchDashboard() {
     const {summary, jobs, refreshedAt, odate} = batchState.dashData;
-    $('#dashTotal').textContent = `ODATE ${odate} · 전체 ${jobs.length}건`;
+    $('#dashTotal').textContent = `ODATE ${odate} · 전체 ${jobs.length}건 · Control-M 수행 이력 기준`;
     $('#dashRefreshedAt').textContent = `최종 갱신 ${refreshedAt.slice(11)}`;
 
     const filters = [['MAIN', '주요 작업', mainJobs().length], ['ALL', '전체', jobs.length],
@@ -160,14 +170,24 @@ function renderBatchDashboard() {
     renderJobTable();
 }
 
+/** 주요 작업: 즐겨찾기 · 오류 · 선행 작업 오류로 보류된 대기 작업 (선행조건 대기는 정상 상태이므로 제외) */
 function mainJobs() {
-    return batchState.dashData.jobs.filter((job) => batchState.favorites.includes(job.jobName)
-        || job.status === 'ERROR' || job.status === 'WAIT');
+    const errors = new Set(batchState.dashData.jobs.filter((job) => job.status === 'ERROR').map((job) => job.jobName));
+    return batchState.dashData.jobs.filter((job) => isFavorite(job) || job.status === 'ERROR'
+        || (job.status === 'WAIT' && job.predecessors.some((pred) => errors.has(pred))));
+}
+
+/** 더 이상 등록되지 않은 작업의 즐겨찾기를 정리합니다. */
+function pruneFavorites(definedJobs) {
+    const kept = batchState.favorites.filter((name) => definedJobs.includes(name));
+    if (kept.length === batchState.favorites.length) return;
+    batchState.favorites = kept;
+    saveFavorites();
 }
 
 function renderJobTable() {
     const filter = batchState.dashFilter;
-    const titles = {MAIN: ['주요 작업', '즐겨찾기 · 오류 · 대기 작업'], ALL: ['전체 작업', 'ODATE 기준 전체 배치 작업']};
+    const titles = {MAIN: ['주요 작업', '즐겨찾기 · 오류 · 선행 오류로 보류된 작업'], ALL: ['전체 작업', 'ODATE 기준 전체 배치 작업']};
     const [title, desc] = titles[filter] || [`${BATCH_STATUS[filter].label} 작업`, `상태가 '${BATCH_STATUS[filter].label}'인 작업`];
     $('#jobListTitle').textContent = title;
     $('#jobListDesc').textContent = desc;
@@ -176,20 +196,28 @@ function renderJobTable() {
     let jobs = filter === 'MAIN' ? mainJobs() : filter === 'ALL' ? batchState.dashData.jobs
         : batchState.dashData.jobs.filter((job) => job.status === filter);
     const priority = {ERROR: 0, RUNNING: 1, WAIT: 2, OK: 3};
-    jobs = [...jobs].sort((a, b) => Number(isFavorite(b)) - Number(isFavorite(a)) || priority[a.status] - priority[b.status]);
+    // 수행 시작 시각 오름차순(먼저 시작한 작업이 위), 미시작 작업은 아래에 상태 우선순위 순으로 둡니다.
+    jobs = [...jobs].sort((a, b) => (a.startTime == null) - (b.startTime == null)
+        || (a.startTime ?? '').localeCompare(b.startTime ?? '') || priority[a.status] - priority[b.status]);
 
     if (!jobs.length) {
-        $('#jobTableBody').innerHTML = '<tr><td colspan="7" class="empty">해당 상태의 작업이 없습니다.</td></tr>';
+        const {dataOdates} = batchState.dashData;
+        const message = batchState.dashData.jobs.length
+            ? (filter === 'MAIN' ? '오류나 보류된 작업이 없습니다. ☆를 눌러 즐겨찾기를 등록하면 여기에 표시됩니다.' : '해당 상태의 작업이 없습니다.')
+            : `ODATE ${batchState.dashData.odate}의 수행 이력이 없습니다. (이력 보유 ODATE: ${dataOdates.join(', ') || '없음'})`;
+        $('#jobTableBody').innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(message)}</td></tr>`;
         return;
     }
+    const {odate} = batchState.dashData;
     $('#jobTableBody').innerHTML = jobs.map((job) => `
         <tr class="${job.status === 'ERROR' ? 'row-error' : ''}">
             <td class="star-col"><button class="star-button ${isFavorite(job) ? 'on' : ''}" data-favorite="${escapeHtml(job.jobName)}" aria-label="즐겨찾기" aria-pressed="${isFavorite(job)}">${isFavorite(job) ? '★' : '☆'}</button></td>
             <td><strong class="job-name">${escapeHtml(job.jobName)}</strong><small class="job-desc">${escapeHtml(job.description)}</small></td>
-            <td>${statusBadge(job.status)}</td>
-            <td class="mono">${timeOf(job.startTime)}</td>
-            <td class="mono">${timeOf(job.endTime)}</td>
-            <td class="mono">${job.status === 'RUNNING' ? formatDuration(job.durationSec) + ' 경과' : formatDuration(job.durationSec)}</td>
+            <td>${statusBadge(job.status, job.ctmState && `Control-M: ${job.ctmState}`)}</td>
+            <td class="mono">${runTimeOf(job.startTime, odate)}</td>
+            <td class="mono">${runTimeOf(job.endTime, odate)}</td>
+            <td class="mono">${job.status === 'RUNNING' ? formatDuration(job.durationSec) + ' 경과' : formatDuration(job.durationSec)}<small class="job-desc">평균 ${formatDuration(job.avgDurationSec)}</small></td>
+            <td class="mono">${job.runCount ?? '-'}회</td>
             <td><button class="log-button" data-log="${escapeHtml(job.jobName)}">로그</button></td>
         </tr>`).join('');
 
@@ -220,6 +248,9 @@ function toggleFavorite(jobName) {
 async function loadOwners() {
     try {
         batchState.owners = await fetchJson('/api/batch/owners');
+        // 목록에 없는 담당자 선택은 지우고, 선택이 없으면 첫 번째(정 담당자)를 기본 선택합니다.
+        batchState.persons = new Set([...batchState.persons].filter((person) => batchState.owners.includes(person)));
+        if (!batchState.persons.size && batchState.owners.length) batchState.persons.add(batchState.owners[0]);
         renderPersonChips();
     } catch (error) {
         showToast(error.message);
@@ -239,6 +270,7 @@ function renderPersonChips() {
 $('#flowSearch').addEventListener('click', () => loadFlow());
 
 async function loadFlow() {
+    await batchState.ownersLoading;
     if (!batchState.persons.size) {
         showToast('담당자를 한 명 이상 선택해 주세요.');
         return;
@@ -286,8 +318,17 @@ function layoutFlow(nodes, edges) {
     return {positions, preds, width, height};
 }
 
-function truncate(text, max) {
-    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+/** SVG 텍스트가 maxWidth(px)를 넘으면 실제 렌더링 폭 기준으로 말줄임합니다. */
+function fitText(element, maxWidth) {
+    const full = element.textContent;
+    if (element.getComputedTextLength() <= maxWidth) return;
+    let low = 0, high = full.length;
+    while (low < high) {
+        const mid = Math.ceil((low + high) / 2);
+        element.textContent = `${full.slice(0, mid)}…`;
+        if (element.getComputedTextLength() <= maxWidth) low = mid; else high = mid - 1;
+    }
+    element.textContent = `${full.slice(0, low)}…`;
 }
 
 function svgEl(tag, attrs = {}, text) {
@@ -316,7 +357,9 @@ function renderFlow() {
     const defs = svgEl('defs');
     const marker = svgEl('marker', {id: 'flowArrow', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse'});
     marker.append(svgEl('path', {d: 'M0,0 L10,5 L0,10 z', class: 'flow-arrow'}));
-    defs.append(marker);
+    const markerHl = svgEl('marker', {id: 'flowArrowHl', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse'});
+    markerHl.append(svgEl('path', {d: 'M0,0 L10,5 L0,10 z', class: 'flow-arrow-hl'}));
+    defs.append(marker, markerHl);
     svg.append(defs);
 
     const edgeLayer = svgEl('g', {class: 'edge-layer'});
@@ -336,9 +379,10 @@ function renderFlow() {
         const group = svgEl('g', {class: `flow-node status-${meta.cls}${external ? ' external' : ''}`, transform: `translate(${x},${y})`, 'data-job': job.jobName, tabindex: 0});
         group.append(svgEl('rect', {class: 'node-box', width: NODE_W, height: NODE_H, rx: 8}));
         group.append(svgEl('rect', {class: 'node-stripe', width: 5, height: NODE_H - 2, x: 1, y: 1, rx: 2}));
-        group.append(svgEl('text', {class: 'node-title', x: 16, y: 23}, job.jobName));
-        group.append(svgEl('text', {class: 'node-desc', x: 16, y: 43}, truncate(`${job.description} · ${job.owner}`, 22)));
-        group.append(svgEl('text', {class: 'node-status', x: NODE_W - 12, y: 23, 'text-anchor': 'end'}, `${meta.icon} ${meta.label}`));
+        const title = svgEl('text', {class: 'node-title', x: 16, y: 23}, job.jobName);
+        const desc = svgEl('text', {class: 'node-desc', x: 16, y: 43}, job.owner === '-' ? job.description : `${job.description} · ${job.owner}`);
+        const status = svgEl('text', {class: 'node-status', x: NODE_W - 12, y: 23, 'text-anchor': 'end'}, `${meta.icon} ${meta.label}`);
+        group.append(title, desc, status);
         const check = svgEl('g', {class: 'node-check', transform: `translate(${NODE_W - 24},${NODE_H - 24})`});
         check.append(svgEl('rect', {width: 16, height: 16, rx: 3}));
         check.append(svgEl('path', {d: 'M4 8.5 L7 11.5 L12.5 5'}));
@@ -346,6 +390,12 @@ function renderFlow() {
         nodeLayer.append(group);
     });
     svg.append(nodeLayer);
+    // 글자 폭은 DOM에 붙은 뒤에 측정할 수 있습니다. 작업명은 상태 표시 앞까지, 설명은 체크박스 앞까지로 제한합니다.
+    nodeLayer.querySelectorAll('.flow-node').forEach((node) => {
+        const statusLeft = NODE_W - 12 - node.querySelector('.node-status').getComputedTextLength();
+        fitText(node.querySelector('.node-title'), statusLeft - 8 - 16);
+        fitText(node.querySelector('.node-desc'), NODE_W - 32 - 16);
+    });
     svg.append(svgEl('rect', {class: 'drag-box hidden', id: 'dragBox'}));
     applyFlowClasses();
 }
@@ -372,13 +422,18 @@ function applyFlowClasses() {
     const svg = $('#flowSvg');
     const highlight = batchState.highlight;
     svg.classList.toggle('highlighting', Boolean(highlight));
+    svg.classList.toggle('highlight-error', Boolean(highlight && jobByName(batchState.highlightRoot).status === 'ERROR'));
     svg.classList.toggle('summary-mode', batchState.summaryMode);
     svg.querySelectorAll('.flow-node').forEach((node) => {
         node.classList.toggle('hl', Boolean(highlight && highlight.has(node.dataset.job)));
+        node.classList.toggle('hl-root', Boolean(highlight && batchState.highlightRoot === node.dataset.job));
         node.classList.toggle('selected', batchState.selected.has(node.dataset.job));
     });
     svg.querySelectorAll('.flow-edge').forEach((edge) => {
-        edge.classList.toggle('hl', Boolean(highlight && highlight.has(edge.dataset.from) && highlight.has(edge.dataset.to)));
+        const on = Boolean(highlight && highlight.has(edge.dataset.from) && highlight.has(edge.dataset.to));
+        edge.classList.toggle('hl', on);
+        edge.setAttribute('marker-end', on ? 'url(#flowArrowHl)' : 'url(#flowArrow)');
+        if (on) edge.parentNode.append(edge); // 강조선을 다른 선 위로 올립니다.
     });
 }
 
@@ -400,13 +455,16 @@ $('#flowSvg').addEventListener('click', (event) => {
         if (batchState.summaryMode) {
             if (batchState.selected.has(name)) batchState.selected.delete(name); else batchState.selected.add(name);
             renderSummary();
-        } else if (jobByName(name).status === 'ERROR') {
-            const same = batchState.highlight && batchState.highlight.has(name) && batchState.highlightRoot === name;
+        } else {
+            // 모든 작업: 선행 작업 경로(노드·연결선)를 강조, 같은 노드를 다시 클릭하면 해제합니다.
+            const same = batchState.highlight && batchState.highlightRoot === name;
             batchState.highlight = same ? null : ancestorsOf(name);
             batchState.highlightRoot = same ? null : name;
-            if (!same) showToast(`${name}의 선행 작업 ${batchState.highlight.size - 1}건을 원인 구간으로 강조했습니다.`);
-        } else {
-            batchState.highlight = null;
+            if (!same) {
+                const count = batchState.highlight.size - 1;
+                const label = jobByName(name).status === 'ERROR' ? ' 원인 구간으로' : '';
+                showToast(count ? `${name}의 선행 작업 ${count}건을${label} 강조했습니다.` : `${name}은 선행 작업이 없습니다.`);
+            }
         }
         applyFlowClasses();
     }, 220);
@@ -439,8 +497,9 @@ $('#flowSvg').addEventListener('mousemove', (event) => {
             <dt>담당자</dt><dd>${escapeHtml(job.owner)}</dd>
             <dt>부담당자</dt><dd>${escapeHtml(job.subOwner)}</dd>
             <dt>책임자</dt><dd>${escapeHtml(job.manager)}</dd>
-            <dt>수행 시작</dt><dd>${timeOf(job.startTime)}</dd>
-            <dt>수행 종료</dt><dd>${timeOf(job.endTime)}</dd>
+            <dt>수행 시작</dt><dd>${runTimeOf(job.startTime, batchState.flow.odate)}</dd>
+            <dt>수행 종료</dt><dd>${runTimeOf(job.endTime, batchState.flow.odate)}</dd>
+            <dt>Control-M</dt><dd>${escapeHtml(job.ctmState ?? (job.status === 'NONE' ? '해당 ODATE 수행 이력 없음' : '-'))}${job.runCount ? ` · ${job.runCount}회` : ''}</dd>
             <dt>수행시간</dt><dd>${formatDuration(job.durationSec)}</dd>
             <dt>평균 수행</dt><dd>${formatDuration(job.avgDurationSec)}</dd>
             <dt>선행 작업</dt><dd>${job.predecessors.length ? job.predecessors.map(escapeHtml).join('<br>') : '없음'}</dd>
@@ -499,7 +558,7 @@ $('#flowSummaryToggle').addEventListener('click', () => {
     $('#flowSummary').classList.toggle('hidden', !batchState.summaryMode);
     $('#flowHint').textContent = batchState.summaryMode
         ? '노드 클릭: 체크 선택 · 빈 영역 드래그: 범위 선택'
-        : '오류 노드 클릭: 원인 구간 강조 · 더블 클릭: 실행 로그';
+        : '노드 클릭: 선행 작업 경로 강조 · 더블 클릭: 실행 로그';
     if (!batchState.summaryMode) batchState.selected.clear();
     renderSummary();
 });

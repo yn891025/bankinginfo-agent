@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * 배치 에이전트 Mock API.
+ * 배치 에이전트 API. 대시보드는 Control-M 수행 이력, Flow Chart·로그 분석은 Mock 시뮬레이션을 사용합니다.
  * 당일 ODATE는 서버 기동 시점부터 시뮬레이션 시계가 흐르므로 새로고침할 때마다 배치 진행 상황이 바뀝니다.
  */
 @RestController
@@ -72,6 +72,11 @@ public class BatchController {
     }
 
     private final Instant startedAt = Instant.now();
+    private final BatchRunHistory runHistory;
+
+    public BatchController(BatchRunHistory runHistory) {
+        this.runHistory = runHistory;
+    }
 
     @GetMapping("/owners")
     public List<String> owners() {
@@ -84,15 +89,57 @@ public class BatchController {
         return List.copyOf(owners);
     }
 
+    /** 대시보드: Control-M 수행 이력(BatchRunHistory) 기준 ODATE별 작업 현황. */
     @GetMapping("/jobs")
     public BatchStatus jobs(@RequestParam(required = false) String odate) {
-        var date = parseOdate(odate);
-        var jobs = simulate(date);
+        var date = parseOdate(odate).format(ODATE);
+        Map<String, JobDef> defs = new HashMap<>();
+        JOBS.forEach(def -> defs.put(def.name(), def));
+        var jobs = runHistory.runs(date).stream().map(run -> toJob(run, defs.get(run.jobName()))).toList();
         Map<String, Long> summary = new LinkedHashMap<>();
         for (var status : List.of("OK", "RUNNING", "ERROR", "WAIT")) {
             summary.put(status, jobs.stream().filter(job -> job.status().equals(status)).count());
         }
-        return new BatchStatus(date.format(ODATE), LocalDateTime.now().format(DATE_TIME), summary, jobs);
+        return new BatchStatus(date, LocalDateTime.now().format(DATE_TIME), summary, jobs, runHistory.odates(),
+                JOBS.stream().map(JobDef::name).toList());
+    }
+
+    /**
+     * 등록된 전체 작업의 수행 이력 기준 상태. 해당 ODATE에 이력이 없는 작업은 NONE(미수행)으로 표시하고,
+     * 작업 목록에 없는 이력 작업은 뒤에 덧붙입니다.
+     */
+    private List<BatchJob> historyJobs(String odate) {
+        Map<String, BatchRunHistory.JobRun> runs = new LinkedHashMap<>();
+        runHistory.runs(odate).forEach(run -> runs.put(run.jobName(), run));
+        List<BatchJob> result = new ArrayList<>();
+        for (var def : JOBS) {
+            var run = runs.remove(def.name());
+            if (run != null) {
+                result.add(toJob(run, def));
+            } else {
+                var avg = runHistory.avgDurationSec(def.name());
+                result.add(toJob(def, "NONE", null, null, null, avg == null ? def.avgMinutes() * 60 : avg));
+            }
+        }
+        runs.values().forEach(run -> result.add(toJob(run, null)));
+        return result;
+    }
+
+    private BatchJob toJob(BatchRunHistory.JobRun run, JobDef def) {
+        var avg = runHistory.avgDurationSec(run.jobName());
+        if (avg == null) avg = def == null ? 0 : def.avgMinutes() * 60;
+        List<String> predecessors = new ArrayList<>();
+        if (def != null) {
+            predecessors.addAll(def.externalPredecessors());
+            predecessors.addAll(def.predecessors());
+        }
+        var users = run.users();
+        return new BatchJob(run.jobName(), def == null ? run.title() : def.description(), def == null ? GROUP : def.group(),
+                def == null ? users.get(0) : def.owner(),
+                def == null ? String.join(", ", users.subList(1, users.size())) : String.join(", ", def.subOwners()),
+                def == null ? "-" : def.manager(), predecessors, run.status(),
+                run.start() == null ? null : fmt(run.start()), run.end() == null ? null : fmt(run.end()),
+                run.durationSec(), avg, run.ctmState(), run.runCount());
     }
 
     @GetMapping("/flow")
@@ -100,7 +147,7 @@ public class BatchController {
                              @RequestParam(required = false) List<String> persons,
                              @RequestParam(required = false) List<String> roles) {
         var date = parseOdate(odate);
-        var jobs = simulate(date);
+        var jobs = historyJobs(date.format(ODATE));
         var roleSet = roles == null || roles.isEmpty() ? Set.of("owner", "subOwner", "manager") : Set.copyOf(roles);
         var personSet = persons == null ? Set.<String>of() : Set.copyOf(persons);
 
@@ -119,7 +166,7 @@ public class BatchController {
         Set<String> externalConditions = new LinkedHashSet<>();
         JOBS.forEach(def -> externalConditions.addAll(def.externalPredecessors()));
         externalConditions.forEach(name -> flowJobs.add(new BatchJob(name, "타 시스템 선행 조건", "타 시스템", "-", "-", "-",
-                List.of(), "OK", null, null, null, 0)));
+                List.of(), "OK", null, null, null, 0, null, null)));
         flowJobs.addAll(jobs);
 
         // 조회 대상 작업과 직접 연결된 타 담당자 작업도 흐름 파악을 위해 함께 표시합니다.
@@ -213,7 +260,7 @@ public class BatchController {
         predecessors.addAll(def.predecessors());
         return new BatchJob(def.name(), def.description(), def.group(), def.owner(), String.join(", ", def.subOwners()),
                 def.manager(), predecessors, status, start == null ? null : start.format(DATE_TIME),
-                end == null ? null : end.format(DATE_TIME), durationSec, avgSec);
+                end == null ? null : end.format(DATE_TIME), durationSec, avgSec, null, null);
     }
 
     private List<LogLine> buildLogs(LocalDate date, BatchJob job, Map<String, BatchJob> jobs) {
@@ -353,9 +400,11 @@ public class BatchController {
 
     public record BatchJob(String jobName, String description, String group, String owner, String subOwner,
                            String manager, List<String> predecessors, String status, String startTime,
-                           String endTime, Integer durationSec, int avgDurationSec) {}
+                           String endTime, Integer durationSec, int avgDurationSec, String ctmState, Integer runCount) {}
 
-    public record BatchStatus(String odate, String refreshedAt, Map<String, Long> summary, List<BatchJob> jobs) {}
+    /** dataOdates: 수행 이력이 있는 ODATE 목록, definedJobs: 등록된 전체 작업명(즐겨찾기 정리용) */
+    public record BatchStatus(String odate, String refreshedAt, Map<String, Long> summary, List<BatchJob> jobs,
+                              List<String> dataOdates, List<String> definedJobs) {}
 
     public record FlowNode(BatchJob job, boolean external) {}
 
