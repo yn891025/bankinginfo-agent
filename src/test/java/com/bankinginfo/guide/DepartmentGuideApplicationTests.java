@@ -42,8 +42,8 @@ class DepartmentGuideApplicationTests {
     void returnsBatchJobsForPastOdateAsCompleted() throws Exception {
         mockMvc.perform(get("/api/batch/jobs").param("odate", "20250101"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.jobs.length()").value(16))
-                .andExpect(jsonPath("$.summary.OK").value(16));
+                .andExpect(jsonPath("$.jobs.length()").value(14))
+                .andExpect(jsonPath("$.summary.OK").value(14));
     }
 
     @Test
@@ -51,20 +51,21 @@ class DepartmentGuideApplicationTests {
         mockMvc.perform(get("/api/batch/jobs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.ERROR").value(1))
-                .andExpect(jsonPath("$.jobs[?(@.jobName == 'ACC_STM_GEN_04')].status").value("WAIT"));
+                .andExpect(jsonPath("$.jobs[?(@.jobName == 'bmap_fcp_mail_send01')].status").value("WAIT"));
     }
 
     @Test
     void returnsFlowForSelectedOwnerWithLinkedJobs() throws Exception {
-        mockMvc.perform(get("/api/batch/flow").param("persons", "이영희").param("roles", "owner"))
+        mockMvc.perform(get("/api/batch/flow").param("persons", "민사엽").param("roles", "subOwner"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.nodes[?(@.job.jobName == 'LON_INT_CAL_01')].external").value(false))
-                .andExpect(jsonPath("$.nodes[?(@.job.jobName == 'ACC_BAL_EXT_02')].external").value(true));
+                .andExpect(jsonPath("$.nodes[?(@.job.jobName == 'bmap_fcp_mas_load')].external").value(false))
+                .andExpect(jsonPath("$.nodes[?(@.job.jobName == 'v_dwm_care_sobija_confirm.sh_yundae')].external").value(true))
+                .andExpect(jsonPath("$.edges[?(@.from == 'bmap_fcp_iyul_load' && @.to == 'bmap_fcp_iyul_ihgb_load')]").isNotEmpty());
     }
 
     @Test
     void returnsLogsWithAiAnalysisForFailedJob() throws Exception {
-        mockMvc.perform(get("/api/batch/logs").param("jobName", "ACC_TXN_CHK_03"))
+        mockMvc.perform(get("/api/batch/logs").param("jobName", "bmap_fcp_mas_load"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.analysis.severity").value("HIGH"))
                 .andExpect(jsonPath("$.lines[?(@.level == 'ERROR')]").isNotEmpty());

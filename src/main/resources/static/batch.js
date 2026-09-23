@@ -7,7 +7,7 @@ const BATCH_STATUS = {
 const STATUS_ORDER = ['OK', 'RUNNING', 'ERROR', 'WAIT'];
 const FAVORITE_KEY = 'batchFavoriteJobs';
 const MAX_FAVORITES = 5;
-const NODE_W = 188;
+const NODE_W = 250;
 const NODE_H = 62;
 const COL_GAP = 70;
 const ROW_GAP = 26;
@@ -286,6 +286,10 @@ function layoutFlow(nodes, edges) {
     return {positions, preds, width, height};
 }
 
+function truncate(text, max) {
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
 function svgEl(tag, attrs = {}, text) {
     const element = document.createElementNS(SVG_NS, tag);
     Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, value));
@@ -333,7 +337,7 @@ function renderFlow() {
         group.append(svgEl('rect', {class: 'node-box', width: NODE_W, height: NODE_H, rx: 8}));
         group.append(svgEl('rect', {class: 'node-stripe', width: 5, height: NODE_H - 2, x: 1, y: 1, rx: 2}));
         group.append(svgEl('text', {class: 'node-title', x: 16, y: 23}, job.jobName));
-        group.append(svgEl('text', {class: 'node-desc', x: 16, y: 43}, `${job.description} · ${job.owner}`));
+        group.append(svgEl('text', {class: 'node-desc', x: 16, y: 43}, truncate(`${job.description} · ${job.owner}`, 22)));
         group.append(svgEl('text', {class: 'node-status', x: NODE_W - 12, y: 23, 'text-anchor': 'end'}, `${meta.icon} ${meta.label}`));
         const check = svgEl('g', {class: 'node-check', transform: `translate(${NODE_W - 24},${NODE_H - 24})`});
         check.append(svgEl('rect', {width: 16, height: 16, rx: 3}));

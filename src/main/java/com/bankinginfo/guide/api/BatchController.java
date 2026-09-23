@@ -32,28 +32,44 @@ public class BatchController {
     private static final DateTimeFormatter ODATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final int BATCH_START_MINUTE = 10;
-    private static final double INITIAL_CLOCK_MINUTE = 50;
+    private static final double INITIAL_CLOCK_MINUTE = 120;
     private static final double SIMULATION_SPEED = 10;
-    private static final String FAILING_JOB = "ACC_TXN_CHK_03";
-    private static final String EXTRACT_JOB = "ACC_TXN_EXT_01";
+    private static final String FAILING_JOB = "bmap_fcp_mas_load";
+    private static final String EXTRACT_JOB = "bmap_fcp_iyul_load";
+    private static final String GROUP = "sbdmap";
+    private static final String OWNER = "하태영";
+    private static final List<String> SUB_OWNERS = List.of("이동호", "민사엽");
+    private static final String MANAGER = "노인우";
+    private static final int AT_1100 = 11 * 60;
 
+    /** 작업 목록 원본: docs/batch-job-list.csv (Control-M 작업 정의). 선행 작업 순서(위상 정렬)대로 나열합니다. */
     private static final List<JobDef> JOBS = List.of(
-            new JobDef("COM_DAY_OPEN_01", "일마감 배치 개시", "공통", "홍길동", "김철수", "박민수", List.of(), 2),
-            new JobDef("ACC_TXN_EXT_01", "계좌 거래내역 추출", "계좌", "홍길동", "이영희", "박민수", List.of("COM_DAY_OPEN_01"), 12),
-            new JobDef("ACC_BAL_EXT_02", "계좌 잔액 추출", "계좌", "홍길동", "김철수", "박민수", List.of("COM_DAY_OPEN_01"), 8),
-            new JobDef("DEP_INT_CAL_01", "수신 이자 계산", "수신", "김철수", "홍길동", "최민호", List.of("ACC_BAL_EXT_02"), 25),
-            new JobDef("LON_INT_CAL_01", "여신 이자 계산", "여신", "이영희", "김철수", "최민호", List.of("ACC_BAL_EXT_02"), 30),
-            new JobDef(FAILING_JOB, "거래내역 정합성 검증", "계좌", "홍길동", "이영희", "박민수", List.of("ACC_TXN_EXT_01"), 6),
-            new JobDef("DEP_INT_PST_02", "수신 이자 원장 반영", "수신", "김철수", "이영희", "최민호", List.of("DEP_INT_CAL_01"), 10),
-            new JobDef("LON_OVD_UPD_02", "연체 정보 갱신", "여신", "이영희", "홍길동", "최민호", List.of("LON_INT_CAL_01"), 15),
-            new JobDef("ACC_STM_GEN_04", "전자 거래명세 생성", "계좌", "홍길동", "김철수", "박민수", List.of(FAILING_JOB), 9),
-            new JobDef("DWH_ACC_LOD_01", "정보계 계좌 적재", "정보계", "홍길동", "이영희", "박민수", List.of("ACC_TXN_EXT_01"), 18),
-            new JobDef("DWH_LON_LOD_02", "정보계 여신 적재", "정보계", "이영희", "김철수", "최민호", List.of("LON_OVD_UPD_02"), 14),
-            new JobDef("GL_JNL_SUM_01", "총계정원장 분개 집계", "원장", "박민수", "홍길동", "최민호", List.of(FAILING_JOB, "DEP_INT_PST_02"), 11),
-            new JobDef("NTF_SMS_SND_01", "고객 알림 발송", "채널", "김철수", "홍길동", "박민수", List.of("ACC_STM_GEN_04"), 7),
-            new JobDef("GL_DAY_CLS_02", "일마감 원장 확정", "원장", "박민수", "이영희", "최민호", List.of("GL_JNL_SUM_01", "LON_OVD_UPD_02"), 8),
-            new JobDef("RPT_DAY_GEN_01", "일일 경영 보고서 생성", "정보계", "김철수", "박민수", "최민호", List.of("GL_DAY_CLS_02", "DWH_ACC_LOD_01", "DWH_LON_LOD_02"), 16),
-            new JobDef("EXT_BOK_SND_01", "한국은행 보고 전송", "대외", "박민수", "김철수", "최민호", List.of("RPT_DAY_GEN_01"), 5));
+            job("bmap_fcp_mas_unload.sh", "금융소비자보호 컴플라이언스 KPI 데이터 unload", List.of(), List.of(), AT_1100, 5),
+            job("v_bmap_fcp_mas_load.sh", "금융소비자보호 컴플라이언스 KPI 데이터 load", List.of("bmap_fcp_mas_unload.sh"), List.of(), 0, 12),
+            job("bmap_fcp_cus_div.sh", "금융소비자보호 분리보관 데이터 삭제", List.of(), List.of("bmap_map_cus_div.sh"), AT_1100, 6),
+            job("bmap_fcp_yunbo_load", "금융소비자 보호시스템 데이터 적재 (연대보증)", List.of(),
+                    List.of("v_dwm_care_sobija_confirm.sh_yundae"), 0, 20),
+            job("bmap_fcp_rstr_load", "금융소비자 보호시스템 데이터 적재 (구속성)", List.of(),
+                    List.of("v_bdwh_dwr_rep_trankusocsungDD.sh"), 0, 18),
+            job("bmap_fcp_iyul3_load", "금융소비자 보호시스템 데이터 적재 (3%)", List.of(), List.of("v_dwm_care_sobija_confirm.sh_3"), 0, 15),
+            job("bmap_fcp_iyul10_load", "금융소비자 보호시스템 데이터 적재 (10%)", List.of(), List.of("v_dwm_care_sobija_confirm.sh_10"), 0, 15),
+            job("bmap_fcp_iyul12_load", "금융소비자 보호시스템 데이터 적재 (12%)", List.of(), List.of("v_dwm_care_sobija_confirm.sh_12"), 0, 15),
+            job(EXTRACT_JOB, "금융소비자 보호시스템 데이터 적재 (금리인상)", List.of(), List.of("v_dwm_care_sobija_confirm.sh_yundae"), 0, 25),
+            job("bmap_fcp_iyul_ihgb_load", "금융소비자 보호시스템 데이터 적재 (금리인하요구권거절)", List.of(EXTRACT_JOB),
+                    List.of("byeqd2270.sh_2", "bypq_irtminoti.sh"), 0, 22),
+            job("bmap_fcp_iyul13_load", "금융소비자 보호시스템 데이터 적재 (313%)",
+                    List.of("bmap_fcp_iyul10_load", EXTRACT_JOB, "bmap_fcp_iyul3_load", "bmap_fcp_iyul12_load"), List.of("byeqd2270.sh"), 0, 16),
+            job(FAILING_JOB, "금융소비자 보호시스템 데이터구축",
+                    List.of("bmap_fcp_yunbo_load", EXTRACT_JOB, "bmap_fcp_rstr_load", "bmap_fcp_iyul3_load", "bmap_fcp_iyul10_load",
+                            "bmap_fcp_iyul12_load", "bmap_fcp_iyul13_load", "bmap_fcp_iyul_ihgb_load"), List.of(), 0, 35),
+            job("bmap_fcp_mas.ul", "금융소비자 보호시스템 데이터구축 전체로드", List.of(FAILING_JOB), List.of(), 0, 30),
+            job("bmap_fcp_mail_send01", "금융소비자 보호점검관련 메일발송", List.of("bmap_fcp_mas.ul"), List.of(), 0, 3));
+
+    private static JobDef job(String name, String description, List<String> predecessors, List<String> externalPredecessors,
+                              int startMinute, int avgMinutes) {
+        return new JobDef(name, description, GROUP, OWNER, SUB_OWNERS, MANAGER, predecessors, externalPredecessors,
+                startMinute, avgMinutes);
+    }
 
     private final Instant startedAt = Instant.now();
 
@@ -62,7 +78,7 @@ public class BatchController {
         Set<String> owners = new LinkedHashSet<>();
         JOBS.forEach(job -> {
             owners.add(job.owner());
-            owners.add(job.subOwner());
+            owners.addAll(job.subOwners());
             owners.add(job.manager());
         });
         return List.copyOf(owners);
@@ -89,25 +105,33 @@ public class BatchController {
         var personSet = persons == null ? Set.<String>of() : Set.copyOf(persons);
 
         Set<String> matched = new LinkedHashSet<>();
-        for (var job : jobs) {
+        for (var def : JOBS) {
             if (personSet.isEmpty()
-                    || roleSet.contains("owner") && personSet.contains(job.owner())
-                    || roleSet.contains("subOwner") && personSet.contains(job.subOwner())
-                    || roleSet.contains("manager") && personSet.contains(job.manager())) {
-                matched.add(job.jobName());
+                    || roleSet.contains("owner") && personSet.contains(def.owner())
+                    || roleSet.contains("subOwner") && def.subOwners().stream().anyMatch(personSet::contains)
+                    || roleSet.contains("manager") && personSet.contains(def.manager())) {
+                matched.add(def.name());
             }
         }
 
+        // 작업 목록에 없는 타 시스템 선행 조건은 완료된 외부 노드로 표시합니다.
+        List<BatchJob> flowJobs = new ArrayList<>();
+        Set<String> externalConditions = new LinkedHashSet<>();
+        JOBS.forEach(def -> externalConditions.addAll(def.externalPredecessors()));
+        externalConditions.forEach(name -> flowJobs.add(new BatchJob(name, "타 시스템 선행 조건", "타 시스템", "-", "-", "-",
+                List.of(), "OK", null, null, null, 0)));
+        flowJobs.addAll(jobs);
+
         // 조회 대상 작업과 직접 연결된 타 담당자 작업도 흐름 파악을 위해 함께 표시합니다.
         Set<String> included = new LinkedHashSet<>(matched);
-        for (var job : jobs) {
+        for (var job : flowJobs) {
             if (matched.contains(job.jobName())) included.addAll(job.predecessors());
             if (job.predecessors().stream().anyMatch(matched::contains)) included.add(job.jobName());
         }
 
         List<FlowNode> nodes = new ArrayList<>();
         List<FlowEdge> edges = new ArrayList<>();
-        for (var job : jobs) {
+        for (var job : flowJobs) {
             if (!included.contains(job.jobName())) continue;
             nodes.add(new FlowNode(job, !matched.contains(job.jobName())));
             job.predecessors().stream().filter(included::contains)
@@ -161,7 +185,8 @@ public class BatchController {
                 done.put(def.name(), result.get(result.size() - 1));
                 continue;
             }
-            double start = def.predecessors().stream().mapToDouble(endMinutes::get).max().orElse(BATCH_START_MINUTE) + 1;
+            double start = Math.max(def.predecessors().stream().mapToDouble(endMinutes::get).max().orElse(BATCH_START_MINUTE),
+                    def.startMinute()) + 1;
             double duration = def.avgMinutes() * (0.8 + hash(date, def.name()) % 45 / 100.0);
             var fails = failToday && def.name().equals(FAILING_JOB);
             if (fails) duration = duration * 0.6;
@@ -184,8 +209,10 @@ public class BatchController {
     }
 
     private BatchJob toJob(JobDef def, String status, LocalDateTime start, LocalDateTime end, Integer durationSec, int avgSec) {
-        return new BatchJob(def.name(), def.description(), def.group(), def.owner(), def.subOwner(), def.manager(),
-                def.predecessors(), status, start == null ? null : start.format(DATE_TIME),
+        List<String> predecessors = new ArrayList<>(def.externalPredecessors());
+        predecessors.addAll(def.predecessors());
+        return new BatchJob(def.name(), def.description(), def.group(), def.owner(), String.join(", ", def.subOwners()),
+                def.manager(), predecessors, status, start == null ? null : start.format(DATE_TIME),
                 end == null ? null : end.format(DATE_TIME), durationSec, avgSec);
     }
 
@@ -197,6 +224,7 @@ public class BatchController {
             lines.add(new LogLine(at, "INFO", "작업 등록 확인 - JOB=%s ODATE=%s".formatted(job.jobName(), odate)));
             for (var pred : job.predecessors()) {
                 var predJob = jobs.get(pred);
+                if (predJob == null) continue;
                 if ("ERROR".equals(predJob.status())) {
                     lines.add(new LogLine(predJob.endTime(), "WARN", "선행 작업 %s 오류로 실행이 보류되었습니다.".formatted(pred)));
                 } else if (!"OK".equals(predJob.status())) {
@@ -218,14 +246,14 @@ public class BatchController {
 
         if ("ERROR".equals(job.status())) {
             var end = LocalDateTime.parse(job.endTime(), DATE_TIME);
-            lines.add(new LogLine(fmt(start.plusSeconds(job.durationSec() / 3)), "INFO", "원장 거래내역 건수 집계 완료: %,d건".formatted(total + 4)));
-            lines.add(new LogLine(fmt(start.plusSeconds(job.durationSec() / 2)), "INFO", "추출 파일 건수 집계 완료: %,d건".formatted(total)));
-            lines.add(new LogLine(fmt(end.minusSeconds(20)), "WARN", "건수 불일치 감지 - 원장 %,d건 / 추출 %,d건 (차이 4건)".formatted(total + 4, total)));
+            lines.add(new LogLine(fmt(start.plusSeconds(job.durationSec() / 3)), "INFO", "원천 적재 건수 집계 완료: %,d건".formatted(total + 4)));
+            lines.add(new LogLine(fmt(start.plusSeconds(job.durationSec() / 2)), "INFO", "데이터구축 대상 건수 집계 완료: %,d건".formatted(total)));
+            lines.add(new LogLine(fmt(end.minusSeconds(20)), "WARN", "건수 불일치 감지 - 원천 %,d건 / 구축 %,d건 (차이 4건)".formatted(total + 4, total)));
             var extractStart = LocalDateTime.parse(jobs.get(EXTRACT_JOB).startTime(), DATE_TIME);
-            lines.add(new LogLine(fmt(end.minusSeconds(18)), "WARN", "불일치 거래 발생 시각: %s ~ %s (%s 추출 시작 이후)"
+            lines.add(new LogLine(fmt(end.minusSeconds(18)), "WARN", "불일치 데이터 발생 시각: %s ~ %s (%s 적재 시작 이후)"
                     .formatted(extractStart.toLocalTime().plusSeconds(7), extractStart.toLocalTime().plusSeconds(18), EXTRACT_JOB)));
             lines.add(new LogLine(fmt(end.minusSeconds(2)), "ERROR", "com.bank.batch.ValidationException: 정합성 검증 실패 (CODE=BV-2031)"));
-            lines.add(new LogLine(fmt(end.minusSeconds(2)), "ERROR", "    at com.bank.batch.acc.TxnConsistencyChecker.verify(TxnConsistencyChecker.java:142)"));
+            lines.add(new LogLine(fmt(end.minusSeconds(2)), "ERROR", "    at com.bank.batch.fcp.FcpMasterBuilder.verify(FcpMasterBuilder.java:142)"));
             lines.add(new LogLine(fmt(end), "ERROR", "작업 비정상 종료 (RC=8) - 후행 작업 %s 실행 보류"
                     .formatted(String.join(", ", successors(job.jobName())))));
             return lines;
@@ -257,15 +285,15 @@ public class BatchController {
         switch (job.status()) {
             case "ERROR":
                 return new LogAnalysis("HIGH",
-                        "거래내역 정합성 검증 단계에서 원장과 추출 파일 건수가 4건 차이 나 작업이 RC=8로 종료되었습니다.",
-                        "선행 작업 %s이 %s에 추출을 시작한 이후 발생한 지연 거래 4건이 원장에만 반영되어, 추출 기준 시점이 어긋난 것으로 판단됩니다."
+                        "데이터구축 정합성 검증 단계에서 원천 적재 건수와 구축 대상 건수가 4건 차이 나 작업이 RC=8로 종료되었습니다.",
+                        "선행 작업 %s이 %s에 적재를 시작한 이후 원천(DWH)에 반영된 지연 데이터 4건이 누락되어, 적재 기준 시점이 어긋난 것으로 판단됩니다."
                                 .formatted(EXTRACT_JOB, LocalDateTime.parse(jobs.get(EXTRACT_JOB).startTime(), DATE_TIME).toLocalTime()),
-                        List.of(EXTRACT_JOB + " 추출 조건에 기준시각(ODATE 23:59:59) 컷오프가 적용되어 있는지 확인",
-                                "불일치 거래 4건의 거래번호를 조회하여 지연 입금 여부 확인",
+                        List.of(EXTRACT_JOB + " 적재 조건에 기준시각(ODATE 23:59:59) 컷오프가 적용되어 있는지 확인",
+                                "불일치 데이터 4건의 계좌번호를 조회하여 원천 지연 반영 여부 확인",
                                 EXTRACT_JOB + " 재수행 후 " + job.jobName() + " 재실행 (Rerun)",
                                 "후행 작업 " + String.join(", ", successors(job.jobName())) + " 정상 수행 여부 확인"),
-                        List.of(new BatchCase("WIKI-BAT-2025-032", "거래내역 추출 컷오프 누락 조치", "91%"),
-                                new BatchCase("WIKI-BAT-2024-118", "정합성 검증 건수 불일치 재수행 절차", "83%")));
+                        List.of(new BatchCase("WIKI-BAT-2025-032", "금소법 데이터 적재 컷오프 누락 조치", "91%"),
+                                new BatchCase("WIKI-BAT-2024-118", "데이터구축 건수 불일치 재수행 절차", "83%")));
             case "RUNNING":
                 var start = LocalDateTime.parse(job.startTime(), DATE_TIME);
                 var expected = start.plusSeconds(job.avgDurationSec());
@@ -276,7 +304,7 @@ public class BatchController {
                         List.of());
             case "WAIT":
                 var blocker = job.predecessors().stream().map(jobs::get)
-                        .filter(pred -> "ERROR".equals(pred.status())).findFirst();
+                        .filter(pred -> pred != null && "ERROR".equals(pred.status())).findFirst();
                 if (blocker.isPresent()) {
                     return new LogAnalysis("MEDIUM",
                             "선행 작업 오류로 실행이 보류된 상태입니다.",
@@ -318,8 +346,10 @@ public class BatchController {
         return "%d분 %02d초".formatted(seconds / 60, seconds % 60);
     }
 
-    private record JobDef(String name, String description, String group, String owner, String subOwner,
-                          String manager, List<String> predecessors, int avgMinutes) {}
+    /** predecessors: 작업 목록 내 선행 작업, externalPredecessors: 타 시스템 선행 조건, startMinute: 작업수행시각(ODATE 00:00 기준 분) */
+    private record JobDef(String name, String description, String group, String owner, List<String> subOwners,
+                          String manager, List<String> predecessors, List<String> externalPredecessors,
+                          int startMinute, int avgMinutes) {}
 
     public record BatchJob(String jobName, String description, String group, String owner, String subOwner,
                            String manager, List<String> predecessors, String status, String startTime,
