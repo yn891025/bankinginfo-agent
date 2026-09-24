@@ -136,9 +136,13 @@ $('#dashSearch').addEventListener('click', () => loadBatchDashboard());
 $('#dashRefresh').addEventListener('click', () => loadBatchDashboard(true));
 
 function renderBatchDashboard() {
-    const {summary, jobs, refreshedAt, odate} = batchState.dashData;
-    $('#dashTotal').textContent = `ODATE ${odate} · 전체 ${jobs.length}건 · Control-M 수행 이력 기준`;
-    $('#dashRefreshedAt').textContent = `최종 갱신 ${refreshedAt.slice(11)}`;
+    const {summary, jobs, refreshedAt, odate, source} = batchState.dashData;
+    const live = source?.mode === 'MCP';
+    $('#dashTotal').textContent = `ODATE ${odate} · 전체 ${jobs.length}건 · Control-M 수행 이력 기준 (${live ? 'MCP 실시간' : 'CSV 파일'})`;
+    const refreshed = $('#dashRefreshedAt');
+    refreshed.textContent = live && source.error ? `MCP 연결 실패 · 마지막 데이터 표시 중` : `최종 갱신 ${refreshedAt.slice(11)}`;
+    refreshed.title = live && source.error ? source.error : '';
+    refreshed.classList.toggle('warn', Boolean(live && source.error));
 
     const filters = [['MAIN', '주요 작업', mainJobs().length], ['ALL', '전체', jobs.length],
         ...STATUS_ORDER.map((status) => [status, BATCH_STATUS[status].label, summary[status]])];

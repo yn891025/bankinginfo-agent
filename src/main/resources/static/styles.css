@@ -53,7 +53,7 @@ main{grid-column:2;background:#fff;border:1px solid var(--line);border-left:0;bo
 .batch-toolbar label{font-size:11px;color:#56657a;gap:6px}.batch-toolbar input,.batch-toolbar select{padding:9px 11px;min-width:150px}
 .batch-toolbar .primary-button,.batch-toolbar .secondary-button{padding:10px 16px}
 .secondary-button.active{background:#eaf3ff;border-color:#1769d2;color:#1769d2}
-.refreshed-at{margin-left:auto;align-self:center;font-size:12px;color:var(--muted)}
+.refreshed-at{margin-left:auto;align-self:center;font-size:12px;color:var(--muted)}.refreshed-at.warn{color:#b3261e}
 .batch-dash-grid{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(0,2fr);gap:18px;align-items:start}
 .status-filter{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:18px 0 16px}
 .status-tab{border:1px solid var(--line);background:#fff;border-radius:6px;padding:9px 10px;display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:#4d5c70;cursor:pointer}

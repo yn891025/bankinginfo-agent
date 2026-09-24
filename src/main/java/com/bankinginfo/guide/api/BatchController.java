@@ -87,7 +87,7 @@ public class BatchController {
             summary.put(status, jobs.stream().filter(job -> job.status().equals(status)).count());
         }
         return new BatchStatus(date, LocalDateTime.now().format(DATE_TIME), summary, jobs, runHistory.odates(),
-                JOBS.stream().map(JobDef::name).toList());
+                JOBS.stream().map(JobDef::name).toList(), runHistory.source());
     }
 
     @GetMapping("/flow")
@@ -196,9 +196,9 @@ public class BatchController {
                            String manager, List<String> predecessors, String status, String startTime,
                            String endTime, Integer durationSec, Integer avgDurationSec, String ctmState, Integer runCount) {}
 
-    /** dataOdates: 수행 이력이 있는 ODATE 목록, definedJobs: 등록된 전체 작업명(즐겨찾기 정리용) */
+    /** dataOdates: 수행 이력이 있는 ODATE 목록, definedJobs: 등록된 전체 작업명(즐겨찾기 정리용), source: 데이터 출처(MCP/CSV) */
     public record BatchStatus(String odate, String refreshedAt, Map<String, Long> summary, List<BatchJob> jobs,
-                              List<String> dataOdates, List<String> definedJobs) {}
+                              List<String> dataOdates, List<String> definedJobs, BatchRunHistory.DataSource source) {}
 
     public record FlowNode(BatchJob job, boolean external) {}
 
