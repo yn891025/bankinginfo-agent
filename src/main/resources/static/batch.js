@@ -43,10 +43,6 @@ function toOdate(value) {
     return (value || todayInputValue()).replaceAll('-', '');
 }
 
-function toInputDate(odate) {
-    return `${odate.slice(0, 4)}-${odate.slice(4, 6)}-${odate.slice(6, 8)}`;
-}
-
 /** ODATE와 수행 일자가 다르면(익일 수행) 월-일을 함께 표시합니다. */
 function runTimeOf(dateTime, odate) {
     if (!dateTime) return '-';
@@ -91,7 +87,7 @@ function saveFavorites() {
 function loadBatchView() {
     if (batchState.initialized) return;
     batchState.initialized = true;
-    ['#dashOdate', '#flowOdate', '#logOdate'].forEach((selector) => { $(selector).value = todayInputValue(); });
+    ['#dashOdate', '#flowOdate'].forEach((selector) => { $(selector).value = todayInputValue(); });
     loadBatchDashboard();
     batchState.ownersLoading = loadOwners();
 }
@@ -102,22 +98,9 @@ function showBatchPage(page) {
     const pages = {dashboard: '#batchDashboardPage', flow: '#batchFlowPage', log: '#batchLogPage'};
     Object.entries(pages).forEach(([key, selector]) => $(selector).classList.toggle('active', key === page));
     if (page === 'flow' && !batchState.flow) loadFlow();
-    if (page === 'log') ensureLogJobOptions();
 }
 
 $$('.batch-tab').forEach((tab) => tab.addEventListener('click', () => showBatchPage(tab.dataset.batchPage)));
-
-function openJobLog(jobName, odate) {
-    showBatchPage('log');
-    $('#logOdate').value = toInputDate(odate);
-    $('#logFrom').value = '';
-    $('#logTo').value = '';
-    ensureLogJobOptions().then(() => {
-        $('#logJob').value = jobName;
-        loadLogs();
-    });
-    window.scrollTo({top: 0, behavior: 'smooth'});
-}
 
 /* ---------- PAGE 1. DASH BOARD ---------- */
 
@@ -205,7 +188,7 @@ function renderJobTable() {
         const message = batchState.dashData.jobs.length
             ? (filter === 'MAIN' ? '오류나 보류된 작업이 없습니다. ☆를 눌러 즐겨찾기를 등록하면 여기에 표시됩니다.' : '해당 상태의 작업이 없습니다.')
             : `ODATE ${batchState.dashData.odate}의 수행 이력이 없습니다. (이력 보유 ODATE: ${dataOdates.join(', ') || '없음'})`;
-        $('#jobTableBody').innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(message)}</td></tr>`;
+        $('#jobTableBody').innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(message)}</td></tr>`;
         return;
     }
     const {odate} = batchState.dashData;
@@ -218,11 +201,9 @@ function renderJobTable() {
             <td class="mono">${runTimeOf(job.endTime, odate)}</td>
             <td class="mono">${job.status === 'RUNNING' ? formatDuration(job.durationSec) + ' 경과' : formatDuration(job.durationSec)}<small class="job-desc">평균 ${formatDuration(job.avgDurationSec)}</small></td>
             <td class="mono">${job.runCount ?? '-'}회</td>
-            <td><button class="log-button" data-log="${escapeHtml(job.jobName)}">로그</button></td>
         </tr>`).join('');
 
     $$('#jobTableBody [data-favorite]').forEach((button) => button.addEventListener('click', () => toggleFavorite(button.dataset.favorite)));
-    $$('#jobTableBody [data-log]').forEach((button) => button.addEventListener('click', () => openJobLog(button.dataset.log, batchState.dashData.odate)));
 }
 
 function isFavorite(job) {
@@ -437,49 +418,39 @@ function applyFlowClasses() {
     });
 }
 
-let flowClickTimer = null;
 let dragStart = null;
 
-$('#flowSvg').addEventListener('click', (event) => {
-    const node = event.target.closest('.flow-node');
-    clearTimeout(flowClickTimer);
-    flowClickTimer = setTimeout(() => {
-        if (!node) {
-            if (!batchState.summaryMode && batchState.highlight) {
-                batchState.highlight = null;
-                applyFlowClasses();
-            }
-            return;
+function selectFlowNode(node) {
+    if (!node) {
+        if (!batchState.summaryMode && batchState.highlight) {
+            batchState.highlight = null;
+            applyFlowClasses();
         }
-        const name = node.dataset.job;
-        if (batchState.summaryMode) {
-            if (batchState.selected.has(name)) batchState.selected.delete(name); else batchState.selected.add(name);
-            renderSummary();
-        } else {
-            // 모든 작업: 선행 작업 경로(노드·연결선)를 강조, 같은 노드를 다시 클릭하면 해제합니다.
-            const same = batchState.highlight && batchState.highlightRoot === name;
-            batchState.highlight = same ? null : ancestorsOf(name);
-            batchState.highlightRoot = same ? null : name;
-            if (!same) {
-                const count = batchState.highlight.size - 1;
-                const label = jobByName(name).status === 'ERROR' ? ' 원인 구간으로' : '';
-                showToast(count ? `${name}의 선행 작업 ${count}건을${label} 강조했습니다.` : `${name}은 선행 작업이 없습니다.`);
-            }
+        return;
+    }
+    const name = node.dataset.job;
+    if (batchState.summaryMode) {
+        if (batchState.selected.has(name)) batchState.selected.delete(name); else batchState.selected.add(name);
+        renderSummary();
+    } else {
+        // 모든 작업: 선행 작업 경로(노드·연결선)를 강조, 같은 노드를 다시 클릭하면 해제합니다.
+        const same = batchState.highlight && batchState.highlightRoot === name;
+        batchState.highlight = same ? null : ancestorsOf(name);
+        batchState.highlightRoot = same ? null : name;
+        if (!same) {
+            const count = batchState.highlight.size - 1;
+            const label = jobByName(name).status === 'ERROR' ? ' 원인 구간으로' : '';
+            showToast(count ? `${name}의 선행 작업 ${count}건을${label} 강조했습니다.` : `${name}은 선행 작업이 없습니다.`);
         }
-        applyFlowClasses();
-    }, 220);
-});
+    }
+    applyFlowClasses();
+}
 
-$('#flowSvg').addEventListener('dblclick', (event) => {
-    const node = event.target.closest('.flow-node');
-    if (!node) return;
-    clearTimeout(flowClickTimer);
-    openJobLog(node.dataset.job, batchState.flow.odate);
-});
+$('#flowSvg').addEventListener('click', (event) => selectFlowNode(event.target.closest('.flow-node')));
 
 $('#flowSvg').addEventListener('keydown', (event) => {
     const node = event.target.closest('.flow-node');
-    if (node && event.key === 'Enter') openJobLog(node.dataset.job, batchState.flow.odate);
+    if (node && event.key === 'Enter') selectFlowNode(node);
 });
 
 $('#flowSvg').addEventListener('mousemove', (event) => {
@@ -558,7 +529,7 @@ $('#flowSummaryToggle').addEventListener('click', () => {
     $('#flowSummary').classList.toggle('hidden', !batchState.summaryMode);
     $('#flowHint').textContent = batchState.summaryMode
         ? '노드 클릭: 체크 선택 · 빈 영역 드래그: 범위 선택'
-        : '노드 클릭: 선행 작업 경로 강조 · 더블 클릭: 실행 로그';
+        : '노드 클릭: 선행 작업 경로 강조';
     if (!batchState.summaryMode) batchState.selected.clear();
     renderSummary();
 });
@@ -582,17 +553,57 @@ function renderSummary() {
 
 /* ---------- PAGE 3. LOG ANALYTICS ---------- */
 
-async function ensureLogJobOptions() {
-    if ($('#logJob').options.length) return;
-    try {
-        const data = batchState.dashData || await fetchJson(`/api/batch/jobs?odate=${toOdate($('#logOdate').value)}`);
-        $('#logJob').innerHTML = data.jobs.map((job) => `<option value="${escapeHtml(job.jobName)}">${escapeHtml(job.jobName)} · ${escapeHtml(job.description)}</option>`).join('');
-    } catch (error) {
-        showToast(error.message);
-    }
+const LOG_TIME = /(\d{4}[-/.]?\d{2}[-/.]?\d{2}[ T]?)?(\d{2}:\d{2}:\d{2})/;
+const LOG_LEVEL = /\b(FATAL|ERROR|ERR|SEVERE|WARN|WARNING|INFO|DEBUG|TRACE)\b/i;
+const LEVEL_ALIAS = {FATAL: 'ERROR', ERR: 'ERROR', SEVERE: 'ERROR', WARNING: 'WARN', DEBUG: 'INFO', TRACE: 'INFO'};
+
+/**
+ * 로그 텍스트를 줄 단위로 해석합니다. 레벨이 없는 줄 중 시각도 없는 줄(스택트레이스 등)은 앞 줄에 이어 붙이고,
+ * 레벨을 찾지 못한 줄은 INFO로 봅니다.
+ */
+function parseLogText(text) {
+    const lines = [];
+    text.split(/\r?\n/).forEach((raw) => {
+        if (!raw.trim()) return;
+        const time = raw.match(LOG_TIME);
+        const level = raw.match(LOG_LEVEL);
+        const previous = lines[lines.length - 1];
+        if (!time && !level && previous) {
+            previous.message += `\n${raw}`;
+            return;
+        }
+        const name = level ? level[1].toUpperCase() : 'INFO';
+        lines.push({time: time ? time[0].trim() : '', clock: time ? time[2] : '', level: LEVEL_ALIAS[name] || name, message: raw});
+    });
+    return lines;
 }
 
-$('#logSearch').addEventListener('click', () => loadLogs());
+$('#logFile').addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    $('#logText').value = await file.text();
+    $('#logFileName').textContent = file.name;
+    if (!$('#logJobName').value) $('#logJobName').value = file.name.replace(/\.[^.]+$/, '');
+    event.target.value = '';
+    analyzeLogs();
+});
+
+$('#logAnalyze').addEventListener('click', () => analyzeLogs());
+
+$('#logClear').addEventListener('click', () => {
+    $('#logText').value = '';
+    $('#logFileName').textContent = '';
+    batchState.logData = null;
+    $('#logTitle').textContent = '실행 로그';
+    $('#logMeta').textContent = '로그를 입력한 뒤 분석해 주세요.';
+    $('#logCount').textContent = '';
+    $('#logViewer').innerHTML = '';
+    $('#aiResult').innerHTML = '<p class="empty">로그를 분석하면 결과가 표시됩니다.</p>';
+});
+
+['#logFrom', '#logTo'].forEach((selector) => $(selector).addEventListener('change', () => {
+    if (batchState.logData) renderLogs();
+}));
 
 $$('#levelFilter .level-chip').forEach((chip) => chip.addEventListener('click', () => {
     const level = chip.dataset.level;
@@ -601,34 +612,29 @@ $$('#levelFilter .level-chip').forEach((chip) => chip.addEventListener('click', 
     if (batchState.logData) renderLogs();
 }));
 
-async function loadLogs() {
-    const jobName = $('#logJob').value;
-    if (!jobName) return;
-    try {
-        const params = new URLSearchParams({odate: toOdate($('#logOdate').value), jobName});
-        batchState.logData = await fetchJson(`/api/batch/logs?${params}`);
-        renderLogs();
-        $('#aiResult').innerHTML = batchState.logData.lines.length
-            ? '<p class="empty">AI 로그 분석은 아직 연동되지 않았습니다.</p>'
-            : '<p class="empty">분석할 실행 로그가 없습니다.</p>';
-    } catch (error) {
-        showToast(error.message);
+function analyzeLogs() {
+    const text = $('#logText').value;
+    if (!text.trim()) {
+        showToast('분석할 로그를 입력하거나 파일을 불러와 주세요.');
+        return;
     }
+    batchState.logData = {jobName: $('#logJobName').value.trim(), lines: parseLogText(text)};
+    renderLogs();
+    $('#aiResult').innerHTML = '<p class="empty">AI 로그 분석은 아직 연동되지 않았습니다.</p>';
 }
 
 function renderLogs() {
-    const {job, lines} = batchState.logData;
+    const {jobName, lines} = batchState.logData;
     const from = $('#logFrom').value;
     const to = $('#logTo').value;
-    const visible = lines.filter((line) => {
-        const time = line.time.slice(11);
-        return batchState.levels.has(line.level) && (!from || time >= from.padEnd(8, ':00')) && (!to || time <= to.padEnd(8, ':59'));
-    });
-    $('#logTitle').textContent = job.jobName;
-    const odate = toOdate($('#logOdate').value);
-    $('#logMeta').innerHTML = `${escapeHtml(job.description)} · ${statusBadge(job.status, job.ctmState && `Control-M: ${job.ctmState}`)} · ${runTimeOf(job.startTime, odate)} ~ ${runTimeOf(job.endTime, odate)}`;
+    const visible = lines.filter((line) => batchState.levels.has(line.level)
+        && (!from || !line.clock || line.clock >= from.padEnd(8, ':00'))
+        && (!to || !line.clock || line.clock <= to.padEnd(8, ':59')));
+    const count = (level) => lines.filter((line) => line.level === level).length;
+    $('#logTitle').textContent = jobName || '실행 로그';
+    $('#logMeta').textContent = `ERROR ${count('ERROR')} · WARN ${count('WARN')} · INFO ${count('INFO')}`;
     $('#logCount').textContent = `${visible.length} / ${lines.length}줄`;
     $('#logViewer').innerHTML = visible.length
-        ? visible.map((line) => `<div class="log-line level-${line.level.toLowerCase()}"><time>${escapeHtml(line.time)}</time><b>${line.level}</b><span>${escapeHtml(line.message)}</span></div>`).join('')
-        : `<p class="empty">${lines.length ? '선택한 조건에 해당하는 로그가 없습니다.' : '실행 로그 데이터가 연동되지 않았습니다.'}</p>`;
+        ? visible.map((line) => `<div class="log-line level-${line.level.toLowerCase()}"><time>${escapeHtml(line.time || '-')}</time><b>${line.level}</b><span>${escapeHtml(line.message)}</span></div>`).join('')
+        : `<p class="empty">${lines.length ? '선택한 조건에 해당하는 로그가 없습니다.' : '해석된 로그가 없습니다.'}</p>`;
 }

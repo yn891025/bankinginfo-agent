@@ -85,14 +85,6 @@ class DepartmentGuideApplicationTests {
     }
 
     @Test
-    void returnsLogJobFromRunHistoryWithoutMockLines() throws Exception {
-        mockMvc.perform(get("/api/batch/logs").param("odate", "20260922").param("jobName", "bmap_fcp_mas_load"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.job.status").value("OK"))
-                .andExpect(jsonPath("$.lines.length()").value(0));
-    }
-
-    @Test
     void rejectsInvalidOdate() throws Exception {
         mockMvc.perform(get("/api/batch/jobs").param("odate", "2026-13"))
                 .andExpect(status().isBadRequest());

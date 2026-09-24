@@ -135,14 +135,6 @@ public class BatchController {
         return new FlowResponse(date, nodes, edges);
     }
 
-    /** 로그 분석: 수행 이력 기준 작업 정보. 실행 로그 데이터는 아직 연동되지 않아 빈 목록을 반환합니다. */
-    @GetMapping("/logs")
-    public LogResponse logs(@RequestParam(required = false) String odate, @RequestParam String jobName) {
-        var job = historyJobs(parseOdate(odate)).stream().filter(item -> item.jobName().equals(jobName)).findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "작업을 찾을 수 없습니다: " + jobName));
-        return new LogResponse(job, List.of());
-    }
-
     private String parseOdate(String odate) {
         if (odate == null || odate.isBlank()) return LocalDate.now().format(ODATE);
         try {
@@ -206,7 +198,4 @@ public class BatchController {
 
     public record FlowResponse(String odate, List<FlowNode> nodes, List<FlowEdge> edges) {}
 
-    public record LogLine(String time, String level, String message) {}
-
-    public record LogResponse(BatchJob job, List<LogLine> lines) {}
 }
