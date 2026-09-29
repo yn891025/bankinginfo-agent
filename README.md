@@ -138,6 +138,18 @@ http://localhost:8080
 ./mvnw spring-boot:run -Dspring-boot.run.arguments=--server.port=8081
 ```
 
+### Java 버전 변경 후 서버 시작 오류
+
+`CannotLoadBeanClassException` 또는 `UnsupportedClassVersionError`가 발생하면 이전 JDK로 컴파일한 파일이 `target`에 남아 있는지 확인합니다. 예를 들어 Java 21 클래스 파일(major version 65)은 Java 17에서 실행할 수 없습니다.
+
+IDE의 프로젝트 SDK와 빌드 대상 Java 버전을 프로젝트 기준인 17로 맞추고, `./mvnw -version`으로 Maven이 사용하는 JDK도 확인합니다. 기존 빌드 결과를 삭제하고 다시 실행하려면 다음 명령을 사용합니다.
+
+```bash
+./mvnw clean spring-boot:run
+```
+
+Windows에서는 `mvnw.cmd clean spring-boot:run`을 사용합니다.
+
 ## 7. 시연 방법
 
 1. 좌측 메뉴에서 `웹 취약점 에이전트`를 선택합니다.
