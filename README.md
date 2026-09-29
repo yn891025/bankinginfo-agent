@@ -25,7 +25,8 @@ Java 17과 Spring Boot 기반으로 실행되며, 별도의 프론트엔드 빌�
 - 웹 취약점 분석 결과는 Spring Boot Mock API가 반환합니다.
 - 위키 검색 및 저장 결과는 예시 데이터입니다.
 - 대시보드 통계는 고정된 데모 데이터입니다.
-- 배치 에이전트와 장애예방 에이전트는 준비 화면만 제공합니다.
+- 배치 에이전트는 작업 정의(`docs/batch-job-list.csv`)와 Control-M 수행 이력(`src/main/resources/batch/*.csv`)을 사용합니다. 실행 로그·AI 분석은 아직 연동되지 않았습니다.
+- 장애예방 에이전트는 준비 화면만 제공합니다.
 - 에이전트 설정값은 브라우저에 저장되며 실제 분석 API 호출에는 아직 사용되지 않습니다.
 
 ## 3. 주요 화면 및 기능
@@ -40,7 +41,33 @@ Java 17과 Spring Boot 기반으로 실행되며, 별도의 프론트엔드 빌�
 - 예상 영향 범위와 점검 체크리스트 제공
 - 조치 결과 등록 및 위키 저장 완료 화면
 
-### 배치 및 장애예방 에이전트
+### 배치 에이전트
+
+화면 상단 탭으로 3개 페이지를 전환합니다.
+
+**PAGE 1. 대시보드**
+
+- ODATE 기준 조회, 첫 화면은 즐겨찾기·오류·대기 작업(주요 작업) 목록
+- `새로고침`으로 실시간 배치 상황 갱신
+- 정상 / 수행중 / 오류 / 대기 건수와 상태별 그래프, 상태 선택 시 우측 작업 목록 필터링
+- 작업 목록: 작업명, 상태, 수행 시작·종료 시간, 수행시간
+- `로그` 선택 시 PAGE 3으로 이동
+- 주요 작업 즐겨찾기(★, 최대 5개, 브라우저 `localStorage`의 `batchFavoriteJobs`에 저장)
+
+**PAGE 2. Flow Chart**
+
+- 담당자 복수 선택 + 역할(담당자/부담당자/책임자) 조건과 ODATE로 조회
+- 선·후행 관계 Flow Chart (정상=초록, 수행중=파랑, 오류=빨강, 대기=회색, 타 담당자 연결 작업=점선)
+- 오류 노드 클릭 시 선행 노드만 강조하여 원인 구간 표시
+- 노드 마우스 오버 시 담당자·배치 정보 툴팁, 더블 클릭 시 PAGE 3으로 이동
+- `요약` 클릭 시 노드 체크박스 표시, 체크 또는 빈 영역 드래그로 범위 선택 → 선택 작업의 평균 수행시간 제공
+
+**PAGE 3. 로그 분석**
+
+- 작업명, ODATE, 시작·종료 시각, ERROR / WARN / INFO 구분 선택
+- 좌측 실행 로그, 우측 AI 분석 결과(위험도, 요약, 원인 추정, 조치 가이드, 유사 사례)
+
+### 장애예방 에이전트
 
 - 좌측 메뉴에서 독립 화면으로 이동
 - 상세 기능 연결 전 준비 상태 제공
@@ -136,13 +163,15 @@ http://localhost:8080
     │   │   ├── DepartmentGuideApplication.java
     │   │   └── api
     │   │       ├── AgentController.java
+    │   │       ├── BatchController.java
     │   │       └── DashboardController.java
     │   └── resources
     │       ├── application.properties
     │       └── static
     │           ├── index.html
     │           ├── styles.css
-    │           └── app.js
+    │           ├── app.js
+    │           └── batch.js
     └── test
         └── java/com/bankinginfo/guide
             └── DepartmentGuideApplicationTests.java
@@ -153,6 +182,9 @@ http://localhost:8080
 | `DepartmentGuideApplication.java` | Spring Boot 실행 진입점 |
 | `AgentController.java` | 분석 및 자산화 Mock API |
 | `DashboardController.java` | 대시보드 Mock API |
+| `BatchController.java` | 배치 현황·Flow·로그 API (수행 이력 기반) |
+| `BatchRunHistory.java` | Control-M 수행 이력 CSV 로드 |
+| `static/batch.js` | 배치 에이전트 PAGE 1~3 화면 로직 |
 | `static/index.html` | 전체 화면 구조와 팝업 |
 | `static/styles.css` | 데스크톱 및 모바일 화면 스타일 |
 | `static/app.js` | 화면 전환, API 호출 및 설정 저장 |
@@ -162,7 +194,10 @@ http://localhost:8080
 | Method | Endpoint | 설명 |
 | --- | --- | --- |
 | `POST` | `/api/web/analyze` | 웹 취약점 분석 결과 반환 |
-| `POST` | `/api/batch/analyze` | 배치 에이전트 준비 상태 반환 |
+| `GET` | `/api/batch/jobs?odate=yyyyMMdd` | ODATE 기준 배치 작업 상태 및 상태별 건수 |
+| `GET` | `/api/batch/owners` | 담당자 목록 |
+| `GET` | `/api/batch/flow?odate=&persons=&roles=` | 담당자 기준 Flow Chart 노드·선후행 관계 |
+| `GET` | `/api/batch/logs?odate=&jobName=` | 작업 정보 및 실행 로그 (로그 미연동: 빈 목록) |
 | `POST` | `/api/assetize` | 조치 결과의 위키 저장 결과 반환 |
 | `GET` | `/api/dashboard/summary` | 대시보드 요약 데이터 반환 |
 
@@ -210,4 +245,4 @@ departmentGuideAgentConfigs
 mvnw.cmd test
 ```
 
-현재 테스트는 웹 취약점 분석 API와 대시보드 요약 API의 응답을 검증합니다.
+현재 테스트는 웹 취약점 분석 API, 대시보드 요약 API, 배치 에이전트 API(작업 현황, Flow, 로그 분석, ODATE 검증)의 응답을 검증합니다.

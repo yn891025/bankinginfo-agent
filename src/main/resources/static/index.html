@@ -34,7 +34,7 @@
         <header class="topbar">
             <button class="menu-button" id="menuButton" aria-label="메뉴 열기">☰</button>
             <div><p class="breadcrumb">업무 길라잡이</p><h1 id="pageTitle">웹 취약점 에이전트</h1></div>
-            <div class="profile"><span>홍길동 님</span><button class="logout-button">로그아웃</button><div class="avatar">홍</div></div>
+            <div class="profile"><span>이동호 님</span><button class="logout-button">로그아웃</button><div class="avatar">이</div></div>
         </header>
 
         <section class="view active" id="workspaceView">
@@ -98,10 +98,110 @@
         </section>
 
         <section class="view" id="batchView">
-            <section class="batch-placeholder">
-                <div class="placeholder-symbol">▦</div><span class="eyebrow">COMING NEXT</span><h2>배치 에이전트</h2>
-                <p>배치 업무의 입력 항목과 분석 방식은 상세 기획 후 이 영역에 연결됩니다.</p>
-                <div class="placeholder-points"><span>배치 로그 분석</span><span>영향 범위 확인</span><span>조치 사례 자산화</span></div>
+            <div class="intro-row">
+                <div><h2>배치 운영 지원</h2><p>ODATE 기준으로 배치 수행 현황과 선·후행 흐름을 확인하고, 실행 로그를 AI로 분석합니다.</p></div>
+                <span class="prototype-badge">PROTOTYPE</span>
+            </div>
+            <div class="batch-tabs" role="tablist">
+                <button class="batch-tab active" data-batch-page="dashboard"><small>PAGE 1</small>대시보드</button>
+                <button class="batch-tab" data-batch-page="flow"><small>PAGE 2</small>Flow Chart</button>
+                <button class="batch-tab" data-batch-page="log"><small>PAGE 3</small>로그 분석</button>
+            </div>
+
+            <!-- PAGE 1. DASH BOARD -->
+            <section class="batch-page active" id="batchDashboardPage">
+                <div class="batch-toolbar">
+                    <label>ODATE<input type="date" id="dashOdate"></label>
+                    <button class="primary-button" id="dashSearch">조회</button>
+                    <button class="secondary-button" id="dashRefresh">↻ 새로고침</button>
+                    <span class="refreshed-at" id="dashRefreshedAt"></span>
+                </div>
+                <div class="batch-dash-grid">
+                    <section class="panel">
+                        <div class="panel-heading"><div><h3>작업 상태 현황</h3><p id="dashTotal">-</p></div></div>
+                        <div class="status-filter" id="statusFilter" role="tablist" aria-label="작업 상태 선택"></div>
+                        <div class="status-chart" id="statusChart"></div>
+                    </section>
+                    <section class="panel">
+                        <div class="panel-heading">
+                            <div><h3 id="jobListTitle">주요 작업</h3><p id="jobListDesc">즐겨찾기 · 오류 · 선행 오류로 보류된 작업</p></div>
+                            <span class="favorite-count" id="favoriteCount">★ 0/5</span>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="job-table">
+                                <thead><tr><th class="star-col"><span class="sr-only">즐겨찾기</span></th><th>작업명</th><th>상태</th><th>수행 시작</th><th>수행 종료</th><th>수행시간</th><th>수행횟수</th></tr></thead>
+                                <tbody id="jobTableBody"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+            <!-- PAGE 2. FLOW CHART -->
+            <section class="batch-page" id="batchFlowPage">
+                <div class="batch-toolbar flow-toolbar">
+                    <div class="person-picker">
+                        <span class="toolbar-label">담당자</span>
+                        <div class="person-chips" id="personChips"></div>
+                        <div class="role-checks">
+                            <label><input type="checkbox" value="owner" checked>담당자</label>
+                            <label><input type="checkbox" value="subOwner" checked>부담당자</label>
+                            <label><input type="checkbox" value="manager" checked>책임자</label>
+                        </div>
+                    </div>
+                    <label>ODATE<input type="date" id="flowOdate"></label>
+                    <button class="primary-button" id="flowSearch">조회</button>
+                    <button class="secondary-button" id="flowSummaryToggle">요약</button>
+                </div>
+                <div class="flow-legend">
+                    <span><i class="status-ok"></i>정상</span><span><i class="status-running"></i>수행중</span><span><i class="status-error"></i>오류</span><span><i class="status-wait"></i>대기</span><span><i class="external"></i>타 담당자 연결 작업</span>
+                    <em id="flowHint">노드 클릭: 선행 작업 경로 강조</em>
+                </div>
+                <div class="flow-layout">
+                    <div class="flow-canvas" id="flowCanvas"><svg id="flowSvg" role="img" aria-label="배치 선후행 Flow Chart"></svg></div>
+                    <aside class="flow-summary hidden" id="flowSummary">
+                        <div class="section-title"><div><h3>선택 작업 요약</h3><p>체크박스 선택 또는 빈 영역을 드래그해 범위를 선택하세요.</p></div></div>
+                        <div class="summary-metrics"><div><span>선택 작업</span><strong id="summaryCount">0</strong></div><div><span>평균 수행시간</span><strong id="summaryAvg">-</strong></div><div><span>합계</span><strong id="summaryTotal">-</strong></div></div>
+                        <ul class="summary-list" id="summaryList"></ul>
+                        <button class="text-button" id="summaryClear">선택 해제</button>
+                    </aside>
+                </div>
+                <div class="flow-tooltip hidden" id="flowTooltip"></div>
+            </section>
+
+            <!-- PAGE 3. LOG ANALYTICS -->
+            <section class="batch-page" id="batchLogPage">
+                <section class="panel log-input">
+                    <div class="log-input-head">
+                        <label>작업명 <small>(선택)</small><input id="logJobName" placeholder="예: bmap_fcp_mas_load"></label>
+                        <label class="file-button secondary-button">로그 파일 불러오기<input type="file" id="logFile" accept=".log,.txt,.out,text/plain" hidden></label>
+                        <span class="log-file-name" id="logFileName"></span>
+                    </div>
+                    <textarea id="logText" class="code-input" rows="8" placeholder="실행 로그를 붙여넣거나 로그 파일을 불러오세요."></textarea>
+                    <div class="log-input-actions">
+                        <button class="secondary-button" id="logClear">지우기</button>
+                        <button class="primary-button" id="logAnalyze">로그 분석</button>
+                    </div>
+                </section>
+                <div class="batch-toolbar">
+                    <label>시작 시각<input type="time" id="logFrom" step="1"></label>
+                    <label>종료 시각<input type="time" id="logTo" step="1"></label>
+                    <div class="level-filter" id="levelFilter">
+                        <button class="level-chip active" data-level="ERROR">ERROR</button>
+                        <button class="level-chip active" data-level="WARN">WARN</button>
+                        <button class="level-chip active" data-level="INFO">INFO</button>
+                    </div>
+                </div>
+                <div class="log-layout">
+                    <section class="panel log-panel">
+                        <div class="panel-heading"><div><h3 id="logTitle">실행 로그</h3><p id="logMeta">로그를 입력한 뒤 분석해 주세요.</p></div><span class="log-count" id="logCount"></span></div>
+                        <div class="log-viewer" id="logViewer"></div>
+                    </section>
+                    <aside class="panel ai-panel">
+                        <div class="section-title"><span class="number">AI</span><div><h3>로그 분석 결과</h3><p>입력한 실행 로그를 기반으로 분석합니다.</p></div></div>
+                        <div id="aiResult" class="ai-result"><p class="empty">로그를 분석하면 결과가 표시됩니다.</p></div>
+                    </aside>
+                </div>
             </section>
         </section>
 
@@ -176,5 +276,6 @@
 </dialog>
 <div class="toast" id="toast">코드를 복사했습니다.</div>
 <script src="/app.js"></script>
+<script src="/batch.js"></script>
 </body>
 </html>

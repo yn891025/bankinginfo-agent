@@ -1,0 +1,95 @@
+어플리케이션,서브어플리케이션,작업제목,작업명,작업설명,작업형태,수행서버,계정명,작업수행명령,작업수행시각,수행한계시각,시작임계시간,종료임계시간,수행임계치시간,입력변수,반복작업여부,선행작업조건,후행작업조건,수행 최대유지 기간,월 캘린더,담당자,알람수신 여부,오류조치 알림유형,오류조치,오류조치방법,Confirm,수행형태
+SBDap1p,sbdmap,금융소비자보호 컴플라이언스 KPI 데이터 unload,bmap_fcp_mas_unload.sh,금융소비자보호 컴플라이언스 KPI 데이터 unload,COMMAND,SBDap1p,batch,/sbdap/home/shl/bmap_fcp_mas_unload.sh %%$ODATE %%$ODATE,1100,,,,>60,ODATE,N,,bmap_fcp_mas_unload.sh-OK^ODAT^ADD,15,mon_5st,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상,출근후조치,,Y,정기
+SBDap1p,sbdmap,금융소비자보호 컴플라이언스 KPI 데이터 load,v_bmap_fcp_mas_load.sh,금융소비자보호 컴플라이언스 KPI 데이터 load,COMMAND,SBDap1p,batch,/sbdap/home/shl/v_bmap_fcp_mas_load.sh %%$ODATE %%$ODATE,,,,,>120,ODATE,N,^bmap_fcp_mas_unload.sh-OK^ODAT^AND^,v_bmap_fcp_mas_load.sh-OK^ODAT^ADD,15,mon_5st,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상+한계위반,즉시연락,,N,정기
+SBDap1p,sbdmap,금융소비자보호 분리보관 데이터 삭제,bmap_fcp_cus_div.sh,"@OP지침 오류시 1회 리런 후 재오류시 담당직원 즉시연락
+
+@작업설명 금융소비자보호 분리보관 데이터 삭제
+
+@오류영향 후속 금융소비자보호 배치작업 진행 불가
+
+@리런조건 담당직원 확인 후 진행
+
+@정보수정 민사엽, 신영은, 하태영 2026.07.07",COMMAND,SBDap1p,batch,/sbdap/home/shl/bmap_fcp_cus_div.sh %%$ODATE,1100,,,,>60,ODATE,N,^bmap_map_cus_div.sh-OK^ODAT^AND^,bmap_fcp_cus_div.sh-OK^ODAT^ADD,15,week_fri,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상,출근후조치,,N,정기
+SBDap1p,sbdmap,금융소비자 보호시스템 데이터구축 전체로드,bmap_fcp_mas.ul,"@OP지침 오류시 1회 리런 후 재오류시 담당직원 즉시연락
+
+@작업설명 금융소비자 보호시스템 데이터구축 전체로드
+
+@오류영향 후속 금융소비자보호 배치작업 진행 불가
+
+@리런조건 담당직원 확인 후 진행
+
+@정보수정 민사엽, 신영은, 하태영 2026.07.07",COMMAND,SBDap1p,batch,/sbdap/home/shl/map_fcp_mas.ul %%TODAY,,,,,>60,ODATE,N,^bmap_fcp_mas_load-OK^ODAT^AND^,bmap_fcp_mas.ul-OK^ODAT^ADD,15,day_oper,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상+한계위반,출근후조치,,N,정기
+SBDap1p,sbdmap,금융소비자 보호시스템 데이터 적재 (연대보증),bmap_fcp_yunbo_load,금융소비자 보호시스템 데이터 적재 (연대보증),COMMAND,SBDap1p,batch,/sbdap/home/bin/bmap_fcp_yunbo_load %%TODAY,,,,,>180,ODATE,N,^v_dwm_care_sobija_confirm.sh_yundae-OK^ODAT^AND^,bmap_fcp_yunbo_load-OK^ODAT^ADD,15,day_oper,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상+한계위반,출근후조치,,N,정기
+SBDap1p,sbdmap,금융소비자 보호시스템 데이터 적재 (구속성),bmap_fcp_rstr_load,금융소비자 보호시스템 데이터 적재 (구속성),COMMAND,SBDap1p,batch,/sbdap/home/bin/bmap_fcp_rstr_load %%TODAY,,,,,>180,ODATE,N,^v_bdwh_dwr_rep_trankusocsungDD.sh-OK^ODAT^AND^,bmap_fcp_rstr_load-OK^ODAT^ADD,15,day_oper,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상+한계위반,출근후조치,,N,정기
+SBDap1p,sbdmap,금융소비자 보호시스템 데이터 적재 (금리인하요구권거절),bmap_fcp_iyul_ihgb_load,"@OP지침 오류시 1회 리런 후 재오류시 담당직원 즉시연락
+
+@작업설명 금융소비자 보호시스템 데이터 적재 (금리인하요구권거절)
+
+@오류영향 후속 금융소비자보호 배치작업 진행 불가
+
+@리런조건 담당직원 확인 후 진행
+
+@정보수정 민사엽, 신영은, 하태영 2026.07.07",COMMAND,SBDap1p,batch,/sbdap/home/bin/bmap_fcp_iyul_ihgb_load %%TODAY,,,,,>180,ODATE,N,"^bmap_fcp_iyul_load-OK^ODAT^AND^,^byeqd2270.sh_2-OK^ODAT^AND^,^bypq_irtminoti.sh-OK^ODAT^AND^",bmap_fcp_iyul_ihgb_load-OK^ODAT^ADD,15,day_oper,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상+한계위반,출근후조치,,N,정기
+SBDap1p,sbdmap,금융소비자 보호점검관련 메일발송,bmap_fcp_mail_send01,"@OP지침 오류시 1회 리런 후 재오류시 담당직원 즉시연락
+
+@작업설명 연대보증,금리인상, 3%,10%,12% 모두 와야 처리가능함.
+
+@오류영향 후속 금융소비자보호 배치작업 진행 불가
+
+@리런조건 담당직원 확인 후 진행
+
+@정보수정 민사엽, 신영은, 하태영 2026.07.07",COMMAND,SBDap1p,batch,/sbdap/home/shl/bmap_fcp_mail_send01.sh %%$ODATE 9999 99999999,,,,,>60,ODATE,N,^bmap_fcp_mas.ul-OK^ODAT^AND^,bmap_fcp_mail_send01-OK^ODAT^ADD,15,day_oper,"M^하태영,S^이동호,S^민사엽,P^노인우",P,정상+비정상+한계위반,출근후조치,,N,정기
+SBDap1p,sbdmap,금융소비자 보호시스템 데이터 적재 (3&#37),bmap_fcp_iyul3_load,"@OP지침 오류시 1회 리런 후 재오류시 담당직원 즉시연락
+
+@작업설명 금융소비자 보호시스템 데이터 적재 (3%)
+
+@오류영향 후속 금융소비자보호 배치작업 진행 불가
+
+@리런조건 담당직원 확인 후 진행
+
+@정보수정 민사엽, 신영은, 하태영 2026.07.07",COMMAND,SBDap1p,batch,/sbdap/home/bin/bmap_fcp_iyul3_load %%TODAY,,,,,>180,ODATE,N,^v_dwm_care_sobija_confirm.sh_3-OK^ODAT^AND^,bmap_fcp_iyul3_load-OK^ODAT^ADD,15,day_oper,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상+한계위반,출근후조치,,N,정기
+SBDap1p,sbdmap,금융소비자 보호시스템 데이터 적재 (10&#37),bmap_fcp_iyul10_load,"@OP지침 오류시 1회 리런 후 재오류시 담당직원 즉시연락
+
+@작업설명 금융소비자 보호시스템 데이터 적재 (10%)
+
+@오류영향 후속 금융소비자보호 배치작업 진행 불가
+
+@리런조건 담당직원 확인 후 진행
+
+@정보수정 민사엽, 신영은, 하태영 2026.07.07",COMMAND,SBDap1p,batch,/sbdap/home/bin/bmap_fcp_iyul10_load %%TODAY,,,,,>180,ODATE,N,^v_dwm_care_sobija_confirm.sh_10-OK^ODAT^AND^,bmap_fcp_iyul10_load-OK^ODAT^ADD,15,day_oper,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상+한계위반,출근후조치,,N,정기
+SBDap1p,sbdmap,금융소비자 보호시스템 데이터 적재 (12&#37),bmap_fcp_iyul12_load,"@OP지침 오류시 1회 리런 후 재오류시 담당직원 즉시연락
+
+@작업설명 금융소비자 보호시스템 데이터 적재 (12%)
+
+@오류영향 후속 금융소비자보호 배치작업 진행 불가
+
+@리런조건 담당직원 확인 후 진행
+
+@정보수정 민사엽, 신영은, 하태영 2026.07.07",COMMAND,SBDap1p,batch,/sbdap/home/bin/bmap_fcp_iyul12_load %%TODAY,,,,,>180,ODATE,N,^v_dwm_care_sobija_confirm.sh_12-OK^ODAT^AND^,bmap_fcp_iyul12_load-OK^ODAT^ADD,15,day_oper,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상+한계위반,출근후조치,,N,정기
+SBDap1p,sbdmap,금융소비자 보호시스템 데이터 적재 (금리인상),bmap_fcp_iyul_load,"@OP지침 오류시 1회 리런 후 재오류시 담당직원 즉시연락
+
+@작업설명 금융소비자 보호시스템 데이터 적재 (연대보증,금리인상, 3%,10%,12% 중 금리인상)
+
+@오류영향 후속 금융소비자보호 배치작업 진행 불가
+
+@리런조건 담당직원 확인 후 진행
+
+@정보수정 민사엽, 신영은, 하태영 2026.07.07",COMMAND,SBDap1p,batch,/sbdap/home/bin/bmap_fcp_iyul_load %%TODAY,,,,,>180,ODATE,N,^v_dwm_care_sobija_confirm.sh_yundae-OK^ODAT^AND^,bmap_fcp_iyul_load-OK^ODAT^ADD,15,day_oper,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상+한계위반,출근후조치,,N,정기
+SBDap1p,sbdmap,금융소비자 보호시스템 데이터 적재 (313&#37),bmap_fcp_iyul13_load,"@OP지침 오류시 1회 리런 후 재오류시 담당직원 즉시연락
+
+@작업설명 금융소비자 보호시스템 데이터 적재 (313%)
+
+@오류영향 후속 금융소비자보호 배치작업 진행 불가
+
+@리런조건 담당직원 확인 후 진행
+
+@정보수정 민사엽, 신영은, 하태영 2026.07.07",COMMAND,SBDap1p,batch,/sbdap/home/bin/bmap_fcp_iyul_load13 %%TODAY,,,,,>180,ODATE,N,"^byeqd2270.sh-OK^ODAT^AND^,^bmap_fcp_iyul10_load-OK^ODAT^AND^,^bmap_fcp_iyul_load-OK^ODAT^AND^,^bmap_fcp_iyul3_load-OK^ODAT^AND^,^bmap_fcp_iyul12_load-OK^ODAT^AND^",bmap_fcp_iyul13_load-OK^ODAT^ADD,15,day_oper,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상+한계위반,출근후조치,,N,정기
+SBDap1p,sbdmap,금융소비자 보호시스템 데이터구축,bmap_fcp_mas_load,"@OP지침 오류시 1회 리런 후 재오류시 담당직원 즉시연락
+
+@작업설명 금융소비자 보호시스템 데이터구축
+
+@오류영향 후속 금융소비자보호 배치작업 진행 불가
+
+@리런조건 담당직원 확인 후 진행
+
+@정보수정 민사엽, 신영은, 하태영 2026.07.07",COMMAND,SBDap1p,batch,/sbdap/home/bin/bmap_fcp_mas_load %%TODAY,,,,,>60,ODATE,N,"^bmap_fcp_yunbo_load-OK^ODAT^AND^,^bmap_fcp_iyul_load-OK^ODAT^AND^,^bmap_fcp_rstr_load-OK^ODAT^AND^,^bmap_fcp_iyul3_load-OK^ODAT^AND^,^bmap_fcp_iyul10_load-OK^ODAT^AND^,^bmap_fcp_iyul12_load-OK^ODAT^AND^,^bmap_fcp_iyul13_load-OK^ODAT^AND^,^bmap_fcp_iyul_ihgb_load-OK^ODAT^AND^",bmap_fcp_mas_load-OK^ODAT^ADD,15,day_oper,"M^하태영,S^이동호,S^민사엽,P^노인우",P,비정상+한계위반,출근후조치,,N,정기

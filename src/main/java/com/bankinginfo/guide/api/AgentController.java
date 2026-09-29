@@ -3,14 +3,11 @@ package com.bankinginfo.guide.api;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -43,12 +40,6 @@ public class AgentController {
                 new Impact("중간", List.of("고객 조회 API", "계좌 검색 화면", systemName + " 공통 DAO")),
                 "공통 입력 검증 유틸이 이미 존재하는지 확인한 뒤 적용 범위를 결정하세요.",
                 title);
-    }
-
-    @PostMapping("/batch/analyze")
-    @ResponseStatus(HttpStatus.NOT_IMPLEMENTED)
-    public Map<String, String> batchAnalyze() {
-        return Map.of("status", "PLANNED", "message", "배치 에이전트 연동 방식은 상세 기획 후 제공됩니다.");
     }
 
     @PostMapping("/assetize")

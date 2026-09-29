@@ -20,6 +20,7 @@ $$('.nav-item').forEach((button) => button.addEventListener('click', () => {
     $('#pageTitle').textContent = titles[view];
     $('.sidebar').classList.remove('open');
     if (view === 'dashboard') loadDashboard();
+    if (view === 'batch') loadBatchView();
 }));
 
 $('#menuButton').addEventListener('click', () => $('.sidebar').classList.toggle('open'));
