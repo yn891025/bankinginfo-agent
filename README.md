@@ -150,6 +150,45 @@ IDE의 프로젝트 SDK와 빌드 대상 Java 버전을 프로젝트 기준인 1
 
 Windows에서는 `mvnw.cmd clean spring-boot:run`을 사용합니다.
 
+### 사내에서 실행하기 — Maven 3.6.3 사용
+
+**GitHub에서 받은 소스 + 별도로 반입한 `offline-repository` + 사내 JDK 17·Maven 3.6.3**을 사용합니다. 아래는 Windows **명령 프롬프트(CMD)** 기준입니다.
+
+**1. 파일 준비**
+
+GitHub에서 소스를 받아 압축을 풀고, 준비해 둔 `offline-repository` 폴더를 `pom.xml` 옆에 복사합니다. 이 의존성 폴더는 현재 Git에 추가되지 않은 로컬 파일이므로 GitHub 소스만 받아서는 포함되지 않습니다.
+
+```text
+C:\work\bankinginfo-agent\
+├── pom.xml
+├── src\
+└── offline-repository\
+```
+
+**2. CMD에서 실행**
+
+아래 **프로젝트·Java·Maven 경로 세 곳만 실제 위치로 바꾸고**, 순서대로 실행합니다. `JAVA_HOME`은 `bin` 폴더가 아닌 JDK 17 폴더입니다. 설정은 현재 CMD 창에만 적용됩니다.
+
+```bat
+cd /d "C:\work\bankinginfo-agent"
+set "JAVA_HOME=C:\tools\jdk-17"
+set "PROJECT_MAVEN=C:\tools\apache-maven-3.6.3\bin\mvn.cmd"
+
+"%PROJECT_MAVEN%" -version
+"%PROJECT_MAVEN%" -o "-Dmaven.repo.local=%CD%\offline-repository" clean package
+"%PROJECT_MAVEN%" -o "-Dmaven.repo.local=%CD%\offline-repository" spring-boot:run
+```
+
+`-version`에서 **Maven 3.6.3 / Java 17**인지 확인하고, `clean package`가 **BUILD SUCCESS**로 끝나면 마지막 명령으로 서버를 시작합니다. `mvnw` 대신 사내 Maven을 직접 사용하므로 Maven 본체를 새로 다운로드하지 않습니다. `-o`는 의존성을 다운로드하지 않는 오프라인 모드입니다.
+
+**3. 브라우저 접속**
+
+`http://localhost:8080`을 엽니다. 서버 종료는 CMD에서 `Ctrl+C`입니다.
+
+**의존성이 없다는 오류가 나면**
+
+현재 외부망에서 사용한 Wrapper는 Maven 3.9.16입니다. 이 버전으로 오프라인 실행에 성공했더라도 사내 Maven 3.6.3에서 필요한 파일은 다를 수 있습니다. 반입 전에 외부망에서도 **Maven 3.6.3으로 위 빌드·실행 명령을 검증**하는 것이 좋습니다. 누락 오류가 나면 외부망에서 해당 명령의 `-o`만 빼고 실행하여 필요한 파일을 받은 다음, 다시 `-o`로 성공하는지 확인하고 `offline-repository`를 반입합니다. 사내 Maven 3.6.3 환경에서의 실행은 아직 검증하지 않았습니다.
+
 ## 7. 시연 방법
 
 1. 좌측 메뉴에서 `웹 취약점 에이전트`를 선택합니다.
